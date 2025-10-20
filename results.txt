@@ -1,0 +1,225 @@
+========================================
+Photo sharing social network
+========================================
+* Every photo is posted by one user *
+       Size	4	8	12	16
+    Optimal	2	4	5	5
+       Time	0.27	0.52	1.09	2.55
+Non Optimal	2	6	9	11
+       Time	0.15	0.68	1.68	4.15
+* Users cannot follow themselves *
+       Size	4	8	12	16
+    Optimal	3	5	6	7
+       Time	0.02	0.29	1.02	3.34
+Non Optimal	3	7	9	10
+       Time	0.17	0.82	1.60	2.86
+* Users can see ads posted by everyone, but only see non ads posted by followed users *
+       Size	4	8	12	16
+    Optimal	2	3	4	5
+       Time	0.04	0.23	1.74	30.20
+Non Optimal	3	5	9	12
+       Time	0.06	0.67	1.60	3.84
+* If a user posts an ad then all its posts should be labeled as ads *
+       Size	4	8	12	16
+    Optimal	2	4	6	7
+       Time	0.02	0.35	4.13	5.10
+Non Optimal	3	4	7	7
+       Time	0.08	0.41	1.18	2.09
+* Influencers are followed by everyone else *
+       Size	4	8	12	16
+    Optimal	3	4	4	5
+       Time	0.06	0.16	0.41	2.44
+Non Optimal	3	6	10	11
+       Time	0.06	0.63	1.70	3.35
+* Suggested are other users followed by followed users, but not yet followed *
+       Size	4	8	12	16
+    Optimal	2	4	5	5
+       Time	0.02	0.27	0.80	3.55
+Non Optimal	2	4	7	8
+       Time	0.06	0.34	0.86	1.57
+* A user only sees ads from followed or suggested users *
+       Size	4	8	12	16
+    Optimal	3	4	5	5
+       Time	0.20	0.50	10.30	19.23
+Non Optimal	3	7	10	12
+       Time	0.10	1.23	2.20	3.99
+----------------------------------------
+       Size	4	8	12	16
+
+    Optimal	2.43	4.00	5.00	5.57
+        Min	2	3	4	5
+        Max	3	5	6	7
+     Median	2.00	4.00	5.00	5.00
+
+       Time	0.09	0.33	2.78	9.49
+        Min	0.02	0.16	0.41	2.44
+        Max	0.27	0.52	10.30	30.20
+     Median	0.04	0.29	1.09	3.55
+
+Non Optimal	2.71	5.57	8.71	10.14
+        Min	2	4	7	7
+        Max	3	7	10	12
+     Median	3.00	6.00	9.00	11.00
+
+       Time	0.10	0.68	1.54	3.12
+        Min	0.06	0.34	0.86	1.57
+        Max	0.17	1.23	2.20	4.15
+     Median	0.08	0.67	1.60	3.35
+========================================
+Production line
+========================================
+* Workers are either human or robots *
+       Size	4	8	12	16
+    Optimal	3	5	6	7
+       Time	0.03	0.13	0.19	2.62
+Non Optimal	3	7	10	11
+       Time	0.04	0.35	1.28	2.48
+* Every workstation has workers and every worker works in one workstation *
+       Size	4	8	12	16
+    Optimal	3	4	5	5
+       Time	0.04	0.12	0.39	0.64
+Non Optimal	3	5	6	6
+       Time	0.08	0.34	0.91	1.99
+* Every component is assembled in one workstation *
+       Size	4	8	12	16
+    Optimal	3	4	5	7
+       Time	0.02	0.25	8.67	11.04
+Non Optimal	3	5	7	8
+       Time	0.06	0.34	0.83	1.64
+* Components must have parts and materials have no parts *
+       Size	4	8	12	16
+    Optimal	3	4	6	6
+       Time	0.02	0.11	1.13	8.54
+Non Optimal	3	6	7	8
+       Time	0.05	0.35	0.87	1.66
+* Humans and robots cannot work together *
+       Size	4	8	12	16
+    Optimal	2	3	5	6
+       Time	0.05	0.18	5.87	31.69
+Non Optimal	3	4	7	9
+       Time	0.08	0.39	1.00	2.52
+* Components cannot be their own parts *
+       Size	4	8	12	16
+    Optimal	2	5	6	7
+       Time	0.03	0.59	3.05	5.92
+Non Optimal	3	7	9	11
+       Time	0.07	0.36	1.06	1.72
+* Components built of dangerous parts are also dangerous *
+       Size	4	8	12	16
+    Optimal	2	4	4	4
+       Time	0.05	2.96	1.57	4.09
+Non Optimal	3	6	7	10
+       Time	0.09	0.37	1.07	2.06
+* Dangerous components cannot be assembled by humans *
+       Size	4	8	12	16
+    Optimal	2	3	4	5
+       Time	0.02	0.04	2.33	37.66
+Non Optimal	2	5	7	8
+       Time	0.06	0.47	1.29	2.34
+----------------------------------------
+       Size	4	8	12	16
+
+    Optimal	2.50	4.00	5.12	5.88
+        Min	2	3	4	4
+        Max	3	5	6	7
+     Median	2.50	4.00	5.00	6.00
+
+       Time	0.03	0.55	2.90	12.78
+        Min	0.02	0.04	0.19	0.64
+        Max	0.05	2.96	8.67	37.66
+     Median	0.03	0.15	1.95	7.23
+
+Non Optimal	2.88	5.62	7.50	8.88
+        Min	2	4	6	6
+        Max	3	7	10	11
+     Median	3.00	5.50	7.00	8.50
+
+       Time	0.07	0.37	1.04	2.05
+        Min	0.04	0.34	0.83	1.64
+        Max	0.09	0.47	1.29	2.52
+     Median	0.07	0.35	1.03	2.03
+========================================
+Train station
+========================================
+* The station has at least one entry and one exit *
+       Size	4	8	12	16
+    Optimal	3	4	5	6
+       Time	0.01	0.04	0.38	0.48
+Non Optimal	3	6	9	11
+       Time	0.02	0.11	0.31	0.62
+* Signals belong to one track *
+       Size	4	8	12	16
+    Optimal	2	4	4	7
+       Time	0.01	0.17	0.12	1.05
+Non Optimal	2	6	6	8
+       Time	0.02	0.10	0.39	0.86
+* Exit tracks are those without successor *
+       Size	4	8	12	16
+    Optimal	3	4	4	6
+       Time	0.01	0.12	0.13	0.46
+Non Optimal	3	5	6	8
+       Time	0.02	0.13	0.33	0.55
+* Entry tracks are those without predecessors *
+       Size	4	8	12	16
+    Optimal	2	4	5	6
+       Time	0.01	0.04	1.46	6.18
+Non Optimal	3	6	8	10
+       Time	0.02	0.15	0.42	0.81
+* Junctions are the tracks with more than one predecessor *
+       Size	4	8	12	16
+    Optimal	2	4	6	7
+       Time	0.01	0.04	4.51	6.52
+Non Optimal	2	5	8	9
+       Time	0.02	0.12	0.35	0.83
+* Entry tracks must have a speed signal *
+       Size	4	8	12	16
+    Optimal	2	4	5	5
+       Time	0.01	0.09	0.79	1.24
+Non Optimal	3	6	7	8
+       Time	0.02	0.14	0.44	0.73
+* The station has no cycles *
+       Size	4	8	12	16
+    Optimal	3	6	6	7
+       Time	0.01	0.07	0.29	1.65
+Non Optimal	3	6	8	9
+       Time	0.03	0.13	0.33	0.76
+* It should be possible to reach every exit from every entry *
+       Size	4	8	12	16
+    Optimal	3	4	5	6
+       Time	0.02	0.15	0.41	2.78
+Non Optimal	3	6	8	8
+       Time	0.02	0.09	0.35	0.62
+* Tracks not followed by junctions do not have semaphores *
+       Size	4	8	12	16
+    Optimal	2	3	4	4
+       Time	0.02	0.04	0.28	4.82
+Non Optimal	3	5	7	10
+       Time	0.03	0.13	0.34	0.70
+* Every track before a junction has a semaphore *
+       Size	4	8	12	16
+    Optimal	2	4	4	5
+       Time	0.01	0.13	2.32	17.90
+Non Optimal	2	5	7	9
+       Time	0.03	0.15	0.48	1.30
+----------------------------------------
+       Size	4	8	12	16
+
+    Optimal	2.40	4.10	4.80	5.90
+        Min	2	3	4	4
+        Max	3	6	6	7
+     Median	2.00	4.00	5.00	6.00
+
+       Time	0.01	0.09	1.07	4.31
+        Min	0.01	0.04	0.12	0.46
+        Max	0.02	0.17	4.51	17.90
+     Median	0.01	0.08	0.40	2.22
+
+Non Optimal	2.70	5.60	7.40	9.00
+        Min	2	5	6	8
+        Max	3	6	9	11
+     Median	3.00	6.00	7.50	9.00
+
+       Time	0.02	0.12	0.37	0.78
+        Min	0.02	0.09	0.31	0.55
+        Max	0.03	0.15	0.48	1.30
+     Median	0.02	0.13	0.35	0.75
