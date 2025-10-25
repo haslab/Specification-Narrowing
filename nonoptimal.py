@@ -51,9 +51,11 @@ def non_optimal_test_set(content, scope):
                 # build formula for instance
                 value = {}
                 for sig in collector.signatures:
-                    value[sig] = list(solution.eval(CompUtil.parseOneExpression_fromString(world, sig)))
+                    tuples = solution.eval(CompUtil.parseOneExpression_fromString(world, sig))
+                    value[sig] = [[t.atom(i) for i in range(t.arity())] for t in tuples]
                 for field in collector.fields:
-                    value[field] = list(solution.eval(CompUtil.parseOneExpression_fromString(world, field)))
+                    tuples = solution.eval(CompUtil.parseOneExpression_fromString(world, field))
+                    value[field] = [[t.atom(i) for i in range(t.arity())] for t in tuples]
                 instances.append(build_instance(collector, value))
                 done.add(j)
     return instances

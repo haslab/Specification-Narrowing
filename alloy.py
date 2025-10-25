@@ -79,26 +79,17 @@ def build_instance(collector, value):
     atoms = set()
     for sig in collector.toplevel:
         for tuple in value[sig]:
-            atoms.add(str(tuple.atom(0)).replace('$',''))
+            atoms.add(str(tuple[0]).replace('$',''))
     instance = "\tsome disj " + ",".join(atoms) + " : univ {\n"
-    for sig in collector.signatures:
-        tuples = value[sig]
-        if tuples:
-            instance += f"\t\t{sig} = " + " + ".join([str(tuple.atom(0)).replace('$','') for tuple in tuples]) + "\n"
-        else:
-            instance += f"\t\tno {sig}\n"
-    for field in collector.fields:
-        tuples = value[field]
+    for rel in value:
+        tuples = value[rel]
         if tuples:
             relation = []
             for tuple in tuples:
-                atoms = []
-                for k in range(tuple.arity()):
-                    atoms.append(str(tuple.atom(k)).replace('$',''))
-                relation.append("->".join(atoms))
-            instance += f"\t\t{field} = " + " + ".join(relation) + "\n"
+                relation.append("->".join([str(atom).replace('$','') for atom in tuple]))
+            instance += f"\t\t{rel} = " + " + ".join(relation) + "\n"
         else:
-            instance += f"\t\tno {field}\n"
+            instance += f"\t\tno {rel}\n"
     instance += "\t}\n"
     return instance
 

@@ -69,9 +69,9 @@ def optimal_test_set(content, scope):
         id = tuple.atom(0)
         value = {}
         for sig in collector.signatures:
-            value[sig] = [t for t in full_value[sig] if t.atom(0) == id]
+            value[sig] = [[t.atom(1)] for t in full_value[sig] if t.atom(0) == id]
         for field in collector.fields:
-            value[field] = [t for t in full_value[field] if t.atom(0) == id]
+            value[field] = [[t.atom(i) for i in range(1, t.arity())] for t in full_value[field] if t.atom(0) == id]
         instances.append(build_instance(collector, value))
     return instances
 
