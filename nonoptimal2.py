@@ -11,7 +11,7 @@ if not jpype.isJVMStarted():
 from edu.mit.csail.sdg.parser import CompUtil
 from edu.mit.csail.sdg.translator import A4Options, TranslateAlloyToKodkod
 
-def non_optimal_test_set(content, scope):
+def non_optimal2_test_set(content, scope):
     collector = parse(content)
 
     predicates = list(collector.predicates)
@@ -24,8 +24,7 @@ def non_optimal_test_set(content, scope):
             if j in done:
                 continue
             # check if any previous instance can be reused
-            for k, inst in enumerate(instances):
-                #print(f"Trying to reuse instance {k+1} for predicates {predicates[i]} and {predicates[j]}...")
+            for inst in instances:
                 command = f"check {{ {{ {inst} }} implies {{ {predicates[i]} iff {predicates[j]} }} }} for {scope}\n"
                 model = command + "\n" + content
                 world = CompUtil.parseEverything_fromString(None,model)
@@ -73,7 +72,7 @@ def main():
     with open(filename,'r') as file:
         content = file.read() 
         # print commands for instances
-        print_instances(non_optimal_test_set(content, scope), scope)
+        print_instances(non_optimal2_test_set(content, scope), scope)
     end = timer()
     print(f"Time taken: {end - start} seconds")
 

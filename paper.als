@@ -39,4 +39,3 @@ pred Fix4 {
 	Researcher = owns.opens.SecureLab
 }
 
-
