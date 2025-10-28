@@ -48,7 +48,7 @@ def optimal_test_set(content, scope):
 
 
     model += "}\nrun {\n\tall disj f,g : Formula | some i : Instance | f in i.valid iff g not in i.valid\n\tminsome Instance\n} for " + str(scope*len(collector.toplevel)) + " Atom, " + str(len(collector.predicates)-1) + " Instance\n"
-    
+
     world = CompUtil.parseEverything_fromString(None,model)
     command = world.getAllCommands()[0]
     options = A4Options()
@@ -56,7 +56,7 @@ def optimal_test_set(content, scope):
     solution = TranslateAlloyToKodkod.execute_command(None, world.getAllReachableSigs(), command, options)
     if not solution.satisfiable():
         print("Some predicates are equivalent.")
-        exit(1)
+        return []
 
     # build formulas for instances
     instances = []

@@ -13,6 +13,7 @@ from edu.mit.csail.sdg.translator import A4Options, TranslateAlloyToKodkod
 
 def non_optimal2_test_set(content, scope):
     collector = parse(content)
+    content = content.replace("(","{").replace(")","}")
 
     predicates = list(collector.predicates)
 
@@ -45,7 +46,7 @@ def non_optimal2_test_set(content, scope):
                 solution = TranslateAlloyToKodkod.execute_command(None, world.getAllReachableSigs(), command, options)
                 if not solution.satisfiable():
                     print(f"Predicates {predicates[i]} and {predicates[j]} are equivalent.")
-                    exit(1)
+                    return []
 
                 # build formula for instance
                 value = {}

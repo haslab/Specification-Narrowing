@@ -29,11 +29,16 @@ with open('dataset.json', 'r') as f:
             print('         Size\t' + '\t'.join([str(n) for n in sizes]))
             instances = []
             time = []
+            all_specifications = [spec.replace('{','(').replace('}',')') for spec in [req["oracle"]] + req["erroneous"]]
+            alloy6 = ["'"]
+            alloy5_specifications = [spec for spec in all_specifications if not any(c in spec for c in alloy6)]
+            specifications = {}
+            for n in sizes:
+                specifications[n] = alloy5_specifications[:n]
             for n in sizes:
                 model = base_model
-                specifications = [req["oracle"]] + req["erroneous"][:n-1]
-                for i,spec in enumerate(specifications):
-                    model += f"\npred S{i} {spec}\n"
+                for i,spec in enumerate(specifications[n]):
+                    model += f"\npred S{i} {{ {spec} }}\n"
                 start = timer()
                 result = optimal_test_set(model, scope)
                 end = timer()
@@ -47,9 +52,8 @@ with open('dataset.json', 'r') as f:
             time = []
             for n in sizes:
                 model = base_model
-                specifications = [req["oracle"]] + req["erroneous"][:n-1]
-                for i,spec in enumerate(specifications):
-                    model += f"\npred S{i} {spec}\n"
+                for i,spec in enumerate(specifications[n]):
+                    model += f"\npred S{i} {{ {spec} }}\n"
                 start = timer()
                 result = non_optimal1_test_set(model, scope)
                 end = timer()
@@ -63,9 +67,8 @@ with open('dataset.json', 'r') as f:
             time = []
             for n in sizes:
                 model = base_model
-                specifications = [req["oracle"]] + req["erroneous"][:n-1]
-                for i,spec in enumerate(specifications):
-                    model += f"\npred S{i} {spec}\n"
+                for i,spec in enumerate(specifications[n]):
+                    model += f"\npred S{i} {{ {spec} }}\n"
                 start = timer()
                 result = non_optimal2_test_set(model, scope)
                 end = timer()

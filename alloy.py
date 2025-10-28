@@ -60,7 +60,7 @@ class Collector(Visitor):
 
     def predicate(self, tree):
         if tree.children[1]:
-            self.predicates[tree.children[0].value] = tree.children[1].value.strip()
+            self.predicates[tree.children[0].value] = tree.children[1].value.strip().replace('(','{').replace(')','}')
         else:
             self.predicates[tree.children[0].value] = ""
 
@@ -80,7 +80,10 @@ def build_instance(collector, value):
     for sig in collector.toplevel:
         for tuple in value[sig]:
             atoms.add(str(tuple[0]).replace('$',''))
-    instance = "\tsome disj " + ",".join(atoms) + " : univ {\n"
+    if atoms:
+        instance = "\tsome disj " + ",".join(atoms) + " : univ {\n"
+    else:
+        instance = "\t{\n"
     for rel in value:
         tuples = value[rel]
         if tuples:
