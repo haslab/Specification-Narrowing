@@ -8,16 +8,28 @@ start: paragraph*
 paragraph: signature | fact | predicate
 signature: [ABSTRACT] [MULTIPLICITY] "sig" NAME [RELATION NAME] "{" [field ("," field)*] "}"
 field: NAME ":" TYPE
-fact: "fact" NAME "{" [EXPR] "}"
-predicate: "pred" NAME "{" [EXPR] "}"
+fact: "fact" NAME "{" [expr] "}"
+predicate: "pred" NAME "{" [expr] "}"
+expr: ANY? ("{" expr "}")? expr?
 MULTIPLICITY: "one" | "lone" | "some"
 RELATION: "extends" | "in"
 ABSTRACT: "abstract"
 TYPE: /[^,}]+/
-EXPR: /[^{}]+/
+ANY: /[^{}]+/
 """
 
-parser = lark.Lark(alloy_grammar, start='start', parser='lalr')
+parser = lark.Lark(alloy_grammar, start='start', parser='earley')
+
+
+def expr2string(tree):
+    result = ""
+    for child in tree.children:
+        if isinstance(child, Tree):
+            if child.children:
+                result += "{" + expr2string(child) + "}"
+        else:
+            result += child.value
+    return result
 
 class Parent(Visitor):
     def __default__(self, tree):
@@ -60,12 +72,12 @@ class Collector(Visitor):
 
     def predicate(self, tree):
         if tree.children[1]:
-            self.predicates[tree.children[0].value] = tree.children[1].value.strip().replace('(','{').replace(')','}')
+            self.predicates[tree.children[0].value] = expr2string(tree.children[1])
         else:
             self.predicates[tree.children[0].value] = ""
 
     def fact(self, tree):
-        self.facts[tree.children[0].value] = tree.children[1].value.strip()
+        self.facts[tree.children[0].value] = expr2string(tree.children[1])
 
 def parse(content):
     tree = parser.parse(content)

@@ -1,116 +1,77 @@
-import json
-from timeit import default_timer as timer
-from optimal import optimal_test_set
-from nonoptimal1 import non_optimal1_test_set
-from nonoptimal2 import non_optimal2_test_set
+from email.mime import text
 from statistics import mean,median
+import os
+import subprocess
+import sys
+import re
 
-maximum = 16
-step = 4
-scope = 3
+if len(sys.argv) != 6:
+    print("Usage: python evaluation.py <algorithm> <min_scope> <max_scope> <min_size> <max_size>")
+    sys.exit(1)
 
-with open('dataset.json', 'r') as f:
-    results = {}
-    results['optimal_size'] = {n : [] for n in range(step, maximum+1, step)}
-    results['optimal_time'] = {n : [] for n in range(step, maximum+1, step)}
-    results['non_optimal1_size'] = {n : [] for n in range(step, maximum+1, step)}
-    results['non_optimal1_time'] = {n : [] for n in range(step, maximum+1, step)}
-    results['non_optimal2_size'] = {n : [] for n in range(step, maximum+1, step)}
-    results['non_optimal2_time'] = {n : [] for n in range(step, maximum+1, step)}
-    dataset = json.load(f)
-    for example in dataset[:3]:
-        print("========================================")
-        print(example['example'])
-        print("========================================")
-        base_model = example['model']
-        for req in example['requirements']:
-            print('* '+req["description"] + ' *')
-            sizes = list(range(step, maximum+1, step))
-            print('         Size\t' + '\t'.join([str(n) for n in sizes]))
-            instances = []
-            time = []
-            all_specifications = [spec.replace('{','(').replace('}',')') for spec in [req["oracle"]] + req["erroneous"]]
-            alloy6 = ["'"]
-            alloy5_specifications = [spec for spec in all_specifications if not any(c in spec for c in alloy6)]
-            specifications = {}
-            for n in sizes:
-                specifications[n] = alloy5_specifications[:n]
-            for n in sizes:
-                model = base_model
-                for i,spec in enumerate(specifications[n]):
-                    model += f"\npred S{i} {{ {spec} }}\n"
-                start = timer()
-                result = optimal_test_set(model, scope)
-                end = timer()
-                instances.append(len(result))
-                time.append(end - start)
-                results['optimal_size'][n].append(len(result))
-                results['optimal_time'][n].append(end - start)
-            print('      Optimal\t' + '\t'.join([str(n) for n in instances]))
-            print('         Time\t' + '\t'.join([f"{t:.2f}" for t in time]))
-            instances = []
-            time = []
-            for n in sizes:
-                model = base_model
-                for i,spec in enumerate(specifications[n]):
-                    model += f"\npred S{i} {{ {spec} }}\n"
-                start = timer()
-                result = non_optimal1_test_set(model, scope)
-                end = timer()
-                instances.append(len(result))
-                time.append(end - start)
-                results['non_optimal1_size'][n].append(len(result))
-                results['non_optimal1_time'][n].append(end - start)
-            print('Non Optimal 1\t' + '\t'.join([str(n) for n in instances]))
-            print('         Time\t' + '\t'.join([f"{t:.2f}" for t in time]))
-            instances = []
-            time = []
-            for n in sizes:
-                model = base_model
-                for i,spec in enumerate(specifications[n]):
-                    model += f"\npred S{i} {{ {spec} }}\n"
-                start = timer()
-                result = non_optimal2_test_set(model, scope)
-                end = timer()
-                instances.append(len(result))
-                time.append(end - start)
-                results['non_optimal2_size'][n].append(len(result))
-                results['non_optimal2_time'][n].append(end - start)
-            print('Non Optimal 2\t' + '\t'.join([str(n) for n in instances]))
-            print('         Time\t' + '\t'.join([f"{t:.2f}" for t in time]))
+algorithm = sys.argv[1]
+min_scope = int(sys.argv[2])
+max_scope = int(sys.argv[3])
+min_size = int(sys.argv[4])
+max_size = int(sys.argv[5])
+sizes = []
+scopes = list(range(min_scope, max_scope + 1))
+
+testcases = {}
+time = {}
+
+for filename in os.listdir('problems'):
+    if not filename.endswith('.als'):
+        continue
+    model = filename[:-4].split('_')[0]
+    requirement = filename[:-4].split('_')[1]
+    size = int(filename[:-4].split('_')[2])
+    if size > max_size:
+        continue
+    if size < min_size:
+        continue
+    if size not in sizes:
+        sizes.append(size)
+    for scope in scopes:        
+        print(f"Processing model {model}, requirement {requirement}, size {size}, with scope {scope}...")
+        # run command line tool with timeout
+        filepath = os.path.join('problems', filename)
+        try:
+            result = subprocess.run(
+                ['python', algorithm + '.py', filepath, str(scope)],  
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            test_suite = result.stdout
+            first_line = test_suite.splitlines()[0]
+            numbers = re.findall(r'\d+\.?\d*', first_line)
+            tests = int(numbers[0])
+            seconds = float(numbers[1])
+            if (size,scope) not in testcases:
+                testcases[(size,scope)] = []
+                time[(size,scope)] = []
+            testcases[(size,scope)].append(tests)
+            time[(size,scope)].append(seconds)
+            print(f"    Generated {tests} test cases in {seconds:.2f} seconds.")
+        except subprocess.TimeoutExpired:
+            print("    Timed out!")
+sizes.sort()
+for s in scopes:
     print("========================================")
-    print("Summary")
+    print("Summary for scope " + str(s))
     print("========================================")
-    sizes = list(range(step, maximum+1, step))
-    print('         Size\t' + '\t'.join([str(n) for n in sizes]))
+    print('Specifications\t' + '\t'.join([str(n) for n in sizes]))
     print()
-    print('      Optimal\t' + '\t'.join([f"{mean(results['optimal_size'][n]):.2f}" for n in sizes]))
-    print('          Min\t' + '\t'.join([f"{min(results['optimal_size'][n])}" for n in sizes]))
-    print('          Max\t' + '\t'.join([f"{max(results['optimal_size'][n])}" for n in sizes]))
-    print('       Median\t' + '\t'.join([f"{median(results['optimal_size'][n]):.2f}" for n in sizes]))
+    print('     Completed\t' + '\t'.join([f"{len(testcases[(n,s)])}" for n in sizes]))
     print()
-    print('         Time\t' + '\t'.join([f"{mean(results['optimal_time'][n]):.2f}" for n in sizes]))
-    print('          Min\t' + '\t'.join([f"{min(results['optimal_time'][n]):.2f}" for n in sizes]))
-    print('          Max\t' + '\t'.join([f"{max(results['optimal_time'][n]):.2f}" for n in sizes]))
-    print('       Median\t' + '\t'.join([f"{median(results['optimal_time'][n]):.2f}" for n in sizes]))
+    print('          Size\t' + '\t'.join([f"{mean(testcases[(n,s)])}" for n in sizes]))
+    print('           Min\t' + '\t'.join([f"{min(testcases[(n,s)])}" for n in sizes]))
+    print('           Max\t' + '\t'.join([f"{max(testcases[(n,s)])}" for n in sizes]))
+    print('        Median\t' + '\t'.join([f"{median(testcases[(n,s)]):.2f}" for n in sizes]))
     print()
-    print('Non Optimal 1\t' + '\t'.join([f"{mean(results['non_optimal1_size'][n]):.2f}" for n in sizes]))
-    print('          Min\t' + '\t'.join([f"{min(results['non_optimal1_size'][n])}" for n in sizes]))
-    print('          Max\t' + '\t'.join([f"{max(results['non_optimal1_size'][n])}" for n in sizes]))
-    print('       Median\t' + '\t'.join([f"{median(results['non_optimal1_size'][n]):.2f}" for n in sizes]))
-    print()
-    print('         Time\t' + '\t'.join([f"{mean(results['non_optimal1_time'][n]):.2f}" for n in sizes]))
-    print('          Min\t' + '\t'.join([f"{min(results['non_optimal1_time'][n]):.2f}" for n in sizes]))
-    print('          Max\t' + '\t'.join([f"{max(results['non_optimal1_time'][n]):.2f}" for n in sizes]))
-    print('       Median\t' + '\t'.join([f"{median(results['non_optimal1_time'][n]):.2f}" for n in sizes]))
-    print()
-    print('Non Optimal 2\t' + '\t'.join([f"{mean(results['non_optimal2_size'][n]):.2f}" for n in sizes]))
-    print('          Min\t' + '\t'.join([f"{min(results['non_optimal2_size'][n])}" for n in sizes]))
-    print('          Max\t' + '\t'.join([f"{max(results['non_optimal2_size'][n])}" for n in sizes]))
-    print('       Median\t' + '\t'.join([f"{median(results['non_optimal2_size'][n]):.2f}" for n in sizes]))
-    print()
-    print('         Time\t' + '\t'.join([f"{mean(results['non_optimal2_time'][n]):.2f}" for n in sizes]))
-    print('          Min\t' + '\t'.join([f"{min(results['non_optimal2_time'][n]):.2f}" for n in sizes]))
-    print('          Max\t' + '\t'.join([f"{max(results['non_optimal2_time'][n]):.2f}" for n in sizes]))
-    print('       Median\t' + '\t'.join([f"{median(results['non_optimal2_time'][n]):.2f}" for n in sizes]))
+    print('          Time\t' + '\t'.join([f"{mean(time[(n,s)]):.2f}" for n in sizes]))
+    print('           Min\t' + '\t'.join([f"{min(time[(n,s)]):.2f}" for n in sizes]))
+    print('           Max\t' + '\t'.join([f"{max(time[(n,s)]):.2f}" for n in sizes]))
+    print('        Median\t' + '\t'.join([f"{median(time[(n,s)]):.2f}" for n in sizes]))
 

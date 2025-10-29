@@ -85,13 +85,13 @@ def main():
     filename = sys.argv[1]
     scope = int(sys.argv[2])
 
-    start = timer()
     with open(filename,'r') as file:
         content = file.read() 
-        # print commands for instances
-        print_instances(optimal_test_set(content, scope), scope)
-    end = timer()
-    print(f"Time taken: {end - start} seconds")
+        start = timer()
+        test_set = optimal_test_set(content, scope)
+        end = timer()
+        print(f"// Generated {len(test_set)} test cases in {end - start} seconds")
+        print_instances(test_set, scope)
 
 if __name__ == "__main__":
     main()

@@ -11,9 +11,8 @@ if not jpype.isJVMStarted():
 from edu.mit.csail.sdg.parser import CompUtil
 from edu.mit.csail.sdg.translator import A4Options, TranslateAlloyToKodkod
 
-def non_optimal2_test_set(content, scope):
+def non_optimal_alt_test_set(content, scope):
     collector = parse(content)
-    content = content.replace("(","{").replace(")","}")
 
     predicates = list(collector.predicates)
 
@@ -43,8 +42,10 @@ def non_optimal2_test_set(content, scope):
                 world = CompUtil.parseEverything_fromString(None,model)
                 command = world.getAllCommands()[0]
                 options = A4Options()
+                options.solver = A4Options.SatSolver.SAT4J
                 solution = TranslateAlloyToKodkod.execute_command(None, world.getAllReachableSigs(), command, options)
                 if not solution.satisfiable():
+                    print(model)
                     print(f"Predicates {predicates[i]} and {predicates[j]} are equivalent.")
                     return []
 
@@ -69,13 +70,13 @@ def main():
     filename = sys.argv[1]
     scope = int(sys.argv[2])
     
-    start = timer()
     with open(filename,'r') as file:
         content = file.read() 
-        # print commands for instances
-        print_instances(non_optimal2_test_set(content, scope), scope)
-    end = timer()
-    print(f"Time taken: {end - start} seconds")
+        start = timer()
+        test_set = non_optimal_alt_test_set(content, scope)
+        end = timer()
+        print(f"// Generated {len(test_set)} test cases in {end - start} seconds")
+        print_instances(test_set, scope)
 
 if __name__ == "__main__":
     main()
