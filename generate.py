@@ -2,7 +2,7 @@ import json
 import os
 
 # the min number of wrong specifications per requirement is 29
-sizes = list(range(4, 28, 4))
+sizes = list(range(4, 29, 4))
 
 with open('dataset.json', 'r') as f:
     dataset = json.load(f)
@@ -20,5 +20,5 @@ with open('dataset.json', 'r') as f:
                     model += f"\npred S{i} {{ {spec} }}\n"
                 if not os.path.exists('problems'):
                     os.makedirs('problems')
-                with open(f"problems/{example["id"]}_{req["pred"][5:]}_{n:02}.als", 'w') as out:
+                with open(f"problems/{example["id"]}_{req["pred"][5:]}_{n}.als", 'w') as out:
                     out.write(model)
