@@ -1,243 +1,168 @@
-========================================
-Photo sharing social network
-========================================
-* Every photo is posted by one user *
-         Size	4	8	12	16
-      Optimal	2	4	5	5
-         Time	0.23	0.55	1.15	3.13
-Non Optimal 1	2	6	8	11
-         Time	0.33	0.90	1.54	2.46
-Non Optimal 2	2	6	9	11
-         Time	0.06	0.53	1.51	4.01
-* Users cannot follow themselves *
-         Size	4	8	12	16
-      Optimal	3	5	6	7
-         Time	0.02	0.46	1.58	2.92
-Non Optimal 1	3	6	9	12
-         Time	0.19	0.72	1.35	2.23
-Non Optimal 2	3	7	9	10
-         Time	0.08	0.46	1.35	2.73
-* Users can see ads posted by everyone, but only see non ads posted by followed users *
-         Size	4	8	12	16
-      Optimal	2	3	4	5
-         Time	0.03	0.34	3.01	30.85
-Non Optimal 1	3	6	10	13
-         Time	0.20	0.86	1.94	2.88
-Non Optimal 2	3	5	9	12
-         Time	0.06	0.57	1.52	3.74
-* If a user posts an ad then all its posts should be labeled as ads *
-         Size	4	8	12	16
-      Optimal	2	4	6	7
-         Time	0.03	0.58	2.47	5.43
-Non Optimal 1	3	5	8	9
-         Time	0.14	0.58	1.20	1.80
-Non Optimal 2	3	4	7	7
-         Time	0.07	0.37	1.03	2.08
-* Influencers are followed by everyone else *
-         Size	4	8	12	16
-      Optimal	3	4	4	5
-         Time	0.06	0.20	0.43	2.61
-Non Optimal 1	3	7	10	10
-         Time	0.16	0.70	1.30	1.94
-Non Optimal 2	3	6	10	11
-         Time	0.06	0.62	1.68	3.27
-* Suggested are other users followed by followed users, but not yet followed *
-         Size	4	8	12	16
-      Optimal	2	4	5	5
-         Time	0.02	0.33	1.11	3.58
-Non Optimal 1	2	6	7	10
-         Time	0.11	0.72	1.23	2.24
-Non Optimal 2	2	4	7	8
-         Time	0.04	0.30	0.78	1.44
-* A user only sees ads from followed or suggested users *
-         Size	4	8	12	16
-      Optimal	3	4	5	5
-         Time	0.24	0.79	6.53	17.46
-Non Optimal 1	3	5	8	10
-         Time	0.13	0.82	1.44	2.34
-Non Optimal 2	3	7	10	12
-         Time	0.09	0.89	2.12	3.88
-========================================
-Production line
-========================================
-* Workers are either human or robots *
-         Size	4	8	12	16
-      Optimal	3	5	6	7
-         Time	0.03	0.10	0.28	3.21
-Non Optimal 1	3	6	8	11
-         Time	0.13	0.51	1.02	1.78
-Non Optimal 2	3	7	10	11
-         Time	0.04	0.32	1.17	2.44
-* Every workstation has workers and every worker works in one workstation *
-         Size	4	8	12	16
-      Optimal	3	4	5	5
-         Time	0.02	0.05	0.62	0.72
-Non Optimal 1	3	4	6	8
-         Time	0.12	0.38	0.93	1.52
-Non Optimal 2	3	5	6	6
-         Time	0.07	0.31	0.84	1.92
-* Every component is assembled in one workstation *
-         Size	4	8	12	16
-      Optimal	3	4	5	7
-         Time	0.02	0.19	9.83	8.15
-Non Optimal 1	3	5	8	8
-         Time	0.10	0.35	0.90	1.10
-Non Optimal 2	3	5	7	8
-         Time	0.06	0.32	0.80	1.57
-* Components must have parts and materials have no parts *
-         Size	4	8	12	16
-      Optimal	3	4	6	6
-         Time	0.02	0.18	0.99	12.95
-Non Optimal 1	3	5	6	8
-         Time	0.09	0.35	1.07	1.25
-Non Optimal 2	3	6	7	8
-         Time	0.04	0.33	0.86	1.62
-* Humans and robots cannot work together *
-         Size	4	8	12	16
-      Optimal	2	3	5	6
-         Time	0.06	0.26	7.32	18.29
-Non Optimal 1	3	7	7	8
-         Time	0.12	0.43	1.05	1.64
-Non Optimal 2	3	4	7	9
-         Time	0.08	0.45	1.18	2.48
-* Components cannot be their own parts *
-         Size	4	8	12	16
-      Optimal	2	5	6	7
-         Time	0.02	0.46	2.71	7.95
-Non Optimal 1	3	7	8	11
-         Time	0.11	0.41	1.05	1.56
-Non Optimal 2	3	7	9	11
-         Time	0.06	0.34	0.79	1.66
-* Components built of dangerous parts are also dangerous *
-         Size	4	8	12	16
-      Optimal	2	4	4	4
-         Time	0.05	1.89	0.78	4.66
-Non Optimal 1	3	7	6	11
-         Time	0.46	0.51	0.75	1.90
-Non Optimal 2	3	6	7	10
-         Time	0.08	0.38	1.05	2.02
-* Dangerous components cannot be assembled by humans *
-         Size	4	8	12	16
-      Optimal	2	3	4	5
-         Time	0.03	0.04	4.61	23.35
-Non Optimal 1	3	6	9	10
-         Time	0.13	0.50	1.42	1.73
-Non Optimal 2	2	5	7	8
-         Time	0.05	0.40	0.86	1.96
-========================================
-Train station
-========================================
-* The station has at least one entry and one exit *
-         Size	4	8	12	16
-      Optimal	3	4	5	6
-         Time	0.01	0.04	0.21	0.21
-Non Optimal 1	3	6	8	10
-         Time	0.04	0.16	0.37	0.54
-Non Optimal 2	3	6	9	11
-         Time	0.02	0.10	0.28	0.65
-* Signals belong to one track *
-         Size	4	8	12	16
-      Optimal	2	4	4	7
-         Time	0.01	0.18	0.11	1.53
-Non Optimal 1	2	6	8	8
-         Time	0.05	0.18	0.31	0.49
-Non Optimal 2	2	6	6	8
-         Time	0.02	0.10	0.37	0.81
-* Exit tracks are those without successor *
-         Size	4	8	12	16
-      Optimal	3	4	4	6
-         Time	0.01	0.07	0.18	0.42
-Non Optimal 1	3	5	7	7
-         Time	0.04	0.15	0.27	0.42
-Non Optimal 2	3	5	6	8
-         Time	0.02	0.11	0.61	0.52
-* Entry tracks are those without predecessors *
-         Size	4	8	12	16
-      Optimal	2	4	5	6
-         Time	0.01	0.03	1.23	8.58
-Non Optimal 1	3	5	6	8
-         Time	0.04	0.15	0.32	0.52
-Non Optimal 2	3	6	8	10
-         Time	0.02	0.15	0.43	0.83
-* Junctions are the tracks with more than one predecessor *
-         Size	4	8	12	16
-      Optimal	2	4	6	7
-         Time	0.01	0.02	3.56	6.00
-Non Optimal 1	2	5	8	9
-         Time	0.04	0.16	0.40	0.73
-Non Optimal 2	2	5	8	9
-         Time	0.02	0.11	0.32	1.18
-* Entry tracks must have a speed signal *
-         Size	4	8	12	16
-      Optimal	2	4	5	5
-         Time	0.01	0.08	0.41	1.26
-Non Optimal 1	3	6	9	9
-         Time	0.05	0.16	0.36	0.57
-Non Optimal 2	3	6	7	8
-         Time	0.02	0.12	0.43	0.70
-* The station has no cycles *
-         Size	4	8	12	16
-      Optimal	3	6	6	7
-         Time	0.01	0.08	0.25	1.45
-Non Optimal 1	3	7	9	11
-         Time	0.04	0.19	0.35	0.55
-Non Optimal 2	3	6	8	9
-         Time	0.02	0.12	0.29	0.72
-* It should be possible to reach every exit from every entry *
-         Size	4	8	12	16
-      Optimal	3	4	5	6
-         Time	0.02	0.14	0.41	4.74
-Non Optimal 1	3	6	7	10
-         Time	0.04	0.16	0.31	0.54
-Non Optimal 2	3	6	8	8
-         Time	0.02	0.10	0.31	0.62
-* Tracks not followed by junctions do not have semaphores *
-         Size	4	8	12	16
-      Optimal	2	3	4	4
-         Time	0.02	0.07	0.13	2.13
-Non Optimal 1	3	6	7	10
-         Time	0.04	0.17	0.32	0.66
-Non Optimal 2	3	5	7	10
-         Time	0.02	0.13	0.33	0.66
-* Every track before a junction has a semaphore *
-         Size	4	8	12	16
-      Optimal	2	4	4	5
-         Time	0.01	0.10	0.78	18.80
-Non Optimal 1	3	7	9	11
-         Time	0.05	0.19	0.36	0.67
-Non Optimal 2	2	5	7	9
-         Time	0.02	0.14	0.44	0.78
-========================================
-Summary
-========================================
-         Size	4	8	12	16
+Optimal
 
-      Optimal	2.44	4.04	4.96	5.80
-          Min	2	3	4	4
-          Max	3	6	6	7
-       Median	2.00	4.00	5.00	6.00
+========================================
+Summary for scope 3
+========================================
+Specifications	4	8	12	16	20	24	28
 
-         Time	0.04	0.29	2.03	7.62
-          Min	0.01	0.02	0.11	0.21
-          Max	0.24	1.89	9.83	30.85
-       Median	0.02	0.18	0.99	4.66
+     Completed	27	27	26	25	22	19	12
 
-Non Optimal 1	2.84	5.88	7.84	9.72
-          Min	2	4	6	7
-          Max	3	7	10	13
-       Median	3.00	6.00	8.00	10.00
+          Size	2.44	4.07	5.04	5.76	6.68	7.05	7.67
+           Min	2	3	4	4	5	5	6
+           Max	3	6	6	7	8	9	9
+        Median	2.00	4.00	5.00	6.00	7.00	7.00	8.00
 
-         Time	0.12	0.42	0.86	1.36
-          Min	0.04	0.15	0.27	0.42
-          Max	0.46	0.90	1.94	2.88
-       Median	0.11	0.38	0.93	1.52
+          Time	0.27	1.71	3.48	6.78	13.10	20.99	25.68
+           Min	0.17	0.29	0.48	0.74	1.78	3.97	7.33
+           Max	0.51	25.73	34.87	25.59	46.59	55.92	57.33
+        Median	0.24	0.60	1.66	4.14	8.09	19.86	22.61
 
-Non Optimal 2	2.76	5.60	7.80	9.28
-          Min	2	4	6	6
-          Max	3	7	10	12
-       Median	3.00	6.00	7.00	9.00
+========================================
+Summary for scope 4
+========================================
+Specifications	16
 
-         Time	0.05	0.31	0.85	1.77
-          Min	0.02	0.10	0.28	0.52
-          Max	0.09	0.89	2.12	4.01
-       Median	0.04	0.32	0.80	1.62
+     Completed	22
+
+          Size	5.68
+           Min	4
+           Max	7
+        Median	6.00
+
+          Time	11.20
+           Min	1.26
+           Max	49.18
+        Median	7.81
+========================================
+Summary for scope 5
+========================================
+Specifications	16
+
+     Completed	18
+
+          Size	5.72
+           Min	4
+           Max	7
+        Median	6.00
+
+          Time	18.35
+           Min	2.69
+           Max	47.75
+        Median	18.55
+========================================
+Summary for scope 6
+========================================
+Specifications	16
+
+     Completed	11
+
+          Size	5.64
+           Min	4
+           Max	7
+        Median	6.00
+
+          Time	20.95
+           Min	3.66
+           Max	41.91
+        Median	17.59
+========================================
+Summary for scope 7
+========================================
+Specifications	16
+
+     Completed	10
+
+          Size	5.50
+           Min	4
+           Max	7
+        Median	5.50
+
+          Time	32.08
+           Min	7.95
+           Max	57.90
+        Median	35.73
+
+
+Non-optimal
+
+========================================
+Summary for scope 3
+========================================
+Specifications	4	8	12	16	20	24	28
+
+     Completed	28	28	28	28	28	28	28
+
+          Size	2.82	5.93	7.86	9.82	11.43	12.96	14.39
+           Min	2	4	6	7	7	8	9
+           Max	3	7	10	13	15	18	22
+        Median	3.00	6.00	8.00	10.00	11.50	13.00	14.00
+
+          Time	0.44	0.96	1.58	2.21	2.92	3.82	4.82
+           Min	0.28	0.56	0.88	1.24	1.49	1.91	2.19
+           Max	0.60	1.47	2.79	3.67	5.56	7.75	10.60
+        Median	0.49	1.02	1.65	2.29	3.05	3.90	4.78
+
+========================================
+Summary for scope 4
+========================================
+Specifications	16
+
+     Completed	28
+
+          Size	9.93
+           Min	7
+           Max	14
+        Median	10.00
+
+          Time	4.31
+           Min	1.48
+           Max	10.94
+        Median	4.60
+========================================
+Summary for scope 5
+========================================
+Specifications	16
+
+     Completed	28
+
+          Size	10.25
+           Min	7
+           Max	14
+        Median	10.00
+
+          Time	6.34
+           Min	1.65
+           Max	21.13
+        Median	6.03
+========================================
+Summary for scope 6
+========================================
+Specifications	16
+
+     Completed	28
+
+          Size	10.21
+           Min	8
+           Max	13
+        Median	10.00
+
+          Time	11.55
+           Min	3.99
+           Max	43.27
+        Median	9.20
+========================================
+Summary for scope 7
+========================================
+Specifications	16
+
+     Completed	27
+
+          Size	10.04
+           Min	7
+           Max	13
+        Median	10.00
+
+          Time	14.91
+           Min	5.93
+           Max	46.21
+        Median	9.43

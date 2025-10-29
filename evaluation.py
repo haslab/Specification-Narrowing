@@ -32,7 +32,10 @@ for filename in os.listdir('problems'):
         continue
     if size not in sizes:
         sizes.append(size)
-    for scope in scopes:        
+    for scope in scopes:  
+        if (size,scope) not in testcases:
+            testcases[(size,scope)] = []
+            time[(size,scope)] = []  
         print(f"Processing model {model}, requirement {requirement}, size {size}, with scope {scope}...")
         # run command line tool with timeout
         filepath = os.path.join('problems', filename)
@@ -48,9 +51,6 @@ for filename in os.listdir('problems'):
             numbers = re.findall(r'\d+\.?\d*', first_line)
             tests = int(numbers[0])
             seconds = float(numbers[1])
-            if (size,scope) not in testcases:
-                testcases[(size,scope)] = []
-                time[(size,scope)] = []
             testcases[(size,scope)].append(tests)
             time[(size,scope)].append(seconds)
             print(f"    Generated {tests} test cases in {seconds:.2f} seconds.")
@@ -65,13 +65,13 @@ for s in scopes:
     print()
     print('     Completed\t' + '\t'.join([f"{len(testcases[(n,s)])}" for n in sizes]))
     print()
-    print('          Size\t' + '\t'.join([f"{mean(testcases[(n,s)]):.2f}" for n in sizes]))
-    print('           Min\t' + '\t'.join([f"{min(testcases[(n,s)])}" for n in sizes]))
-    print('           Max\t' + '\t'.join([f"{max(testcases[(n,s)])}" for n in sizes]))
-    print('        Median\t' + '\t'.join([f"{median(testcases[(n,s)]):.2f}" for n in sizes]))
+    print('          Size\t' + '\t'.join([f"{mean(testcases[(n,s)]):.2f}" if testcases[(n,s)] else "NA" for n in sizes]))
+    print('           Min\t' + '\t'.join([f"{min(testcases[(n,s)])}" if testcases[(n,s)] else "NA" for n in sizes]))
+    print('           Max\t' + '\t'.join([f"{max(testcases[(n,s)])}" if testcases[(n,s)] else "NA" for n in sizes]))
+    print('        Median\t' + '\t'.join([f"{median(testcases[(n,s)]):.2f}" if testcases[(n,s)] else "NA" for n in sizes]))
     print()
-    print('          Time\t' + '\t'.join([f"{mean(time[(n,s)]):.2f}" for n in sizes]))
-    print('           Min\t' + '\t'.join([f"{min(time[(n,s)]):.2f}" for n in sizes]))
-    print('           Max\t' + '\t'.join([f"{max(time[(n,s)]):.2f}" for n in sizes]))
-    print('        Median\t' + '\t'.join([f"{median(time[(n,s)]):.2f}" for n in sizes]))
+    print('          Time\t' + '\t'.join([f"{mean(time[(n,s)]):.2f}" if time[(n,s)] else "NA" for n in sizes]))
+    print('           Min\t' + '\t'.join([f"{min(time[(n,s)]):.2f}" if time[(n,s)] else "NA" for n in sizes]))
+    print('           Max\t' + '\t'.join([f"{max(time[(n,s)]):.2f}" if time[(n,s)] else "NA" for n in sizes]))
+    print('        Median\t' + '\t'.join([f"{median(time[(n,s)]):.2f}" if time[(n,s)] else "NA" for n in sizes]))
 
