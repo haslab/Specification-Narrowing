@@ -10,7 +10,7 @@ with open('dataset.json', 'r') as f:
         base_model = example['model']
         for req in example['requirements']:
             all_specifications = [spec for spec in [req["oracle"]] + req["erroneous"]]
-            alloy6_keywords = ["'"]
+            alloy6_keywords = ["'","before"]
             alloy5_specifications = [spec for spec in all_specifications if not any(c in spec for c in alloy6_keywords)]
             specifications = {}
             for n in sizes:

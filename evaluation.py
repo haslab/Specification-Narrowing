@@ -65,7 +65,7 @@ for s in scopes:
     print()
     print('     Completed\t' + '\t'.join([f"{len(testcases[(n,s)])}" for n in sizes]))
     print()
-    print('          Size\t' + '\t'.join([f"{mean(testcases[(n,s)])}" for n in sizes]))
+    print('          Size\t' + '\t'.join([f"{mean(testcases[(n,s)]):.2f}" for n in sizes]))
     print('           Min\t' + '\t'.join([f"{min(testcases[(n,s)])}" for n in sizes]))
     print('           Max\t' + '\t'.join([f"{max(testcases[(n,s)])}" for n in sizes]))
     print('        Median\t' + '\t'.join([f"{median(testcases[(n,s)]):.2f}" for n in sizes]))
