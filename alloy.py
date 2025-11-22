@@ -6,7 +6,8 @@ alloy_grammar = r"""
 %import common.CNAME -> NAME
 start: paragraph*
 paragraph: signature | fact | predicate
-signature: [ABSTRACT] [MULTIPLICITY] "sig" NAME [RELATION NAME] "{" [field ("," field)*] "}"
+signature: [ABSTRACT] [MULTIPLICITY] "sig" names [RELATION NAME] "{" [field ("," field)*] "}"
+names: NAME ("," NAME)*
 field: NAME ":" TYPE
 fact: "fact" NAME "{" [expr] "}"
 predicate: "pred" NAME "{" [expr] "}"
@@ -50,25 +51,26 @@ class Collector(Visitor):
         self.facts = {}
 
     def signature(self, tree):
-        self.signatures.add(tree.children[2].value)
-        if not tree.children[3]:
-            self.toplevel.add(tree.children[2].value)
-        else:
-            parent = tree.children[4].value
-            self.subsets[tree.children[2].value] = parent
-            if tree.children[3].value == "extends":
-                if parent not in self.extensions:
-                    self.extensions[parent] = set()
-                self.extensions[parent].add(tree.children[2].value)
-        if tree.children[1]:
-            self.multiplicities[tree.children[2].value] = tree.children[1].value
-        if tree.children[0]:
-            self.abstract.add(tree.children[2].value)
+        for n in tree.children[2].children:
+            self.signatures.add(n.value)
+        
+            if not tree.children[3]:
+                self.toplevel.add(n.value)
+            else:
+                parent = tree.children[4].value
+                self.subsets[n.value] = parent
+                if tree.children[3].value == "extends":
+                    self.extensions.setdefault(parent,set()).add(n)
+            if tree.children[1]:
+                self.multiplicities[n.value] = tree.children[1].value
+            if tree.children[0]:
+                self.abstract.add(n.value)
 
     def field(self, tree):
-        parent = tree.parent.children[2].value
-        field_name = tree.children[0].value
-        self.fields[field_name] = parent + " -> " + tree.children[1].value.strip()
+        for p in tree.parent.children[2].children:
+            parent = p.value
+            field_name = tree.children[0].value
+            self.fields[field_name] = parent + " -> " + tree.children[1].value.strip()
 
     def predicate(self, tree):
         if tree.children[1]:

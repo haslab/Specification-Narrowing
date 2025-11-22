@@ -464,6 +464,7 @@
                     "{\n\t// Users can see ads posted by everyone, \n\t// but only see non ads posted by followed users.\n  all p: Photo-Ad, u:User | p in u.follows.sees\n\n}",
                     "{\n    User -> User in sees.(iden & (Ad -> Ad)).(~posts).((iden) -  follows)\n\t// Users can see ads posted by everyone, \n\t// but only see non ads posted by followed users.\n\n}",
                     "{\n    User -> User in sees.(iden & (Ad -> Ad)).(~posts).((univ -> univ) -  follows)\n\t// Users can see ads posted by everyone, \n\t// but only see non ads posted by followed users.\n\n}",
+                    "{\n    \n    all u : User, p : Photo | \n        \n        (p in Ad implies p in u.sees) and\n        \n        (p not in Ad implies some u : User | p in u'.posts and u' in u.follows implies p in u.sees)\n}",
                     "{\n\t// Users can see ads posted by everyone, \n\t// but only see non ads posted by followed users.\n\tall disj u1,u2:User | some p:Photo| p in u1.sees implies ((u2 in follows.u1 and p in u2.posts) or p in Ad)\n}",
                     "{\n\t// Users can see ads posted by everyone, \n\t// but only see non ads posted by followed users.\n\tall u1:User | some u2:User | all p:Photo| p in u1.sees implies ((u2 in follows.u1 and p in u2.posts) or p in Ad)\n}",
                     "{\n\t// Users can see ads posted by everyone, \n\t// but only see non ads posted by followed users.\n\tall u1:User | some u2:User | all p:Photo| p in u1.sees implies ((u1 in follows.u2 and p in u2.posts) or p in Ad)\n}",
@@ -989,6 +990,7 @@
                     "{\n    all u: User, p: Photo |\n        \n        (p in Ad => (some f: u.follows | p in f.posts)) &&\n        \n        \n        (p not in Ad =>\n            (some f: u.follows | p in f.posts implies p in u.sees)  \n            or (some i: Influencer | i in u.follows and p in i.posts implies p in u.sees)  \n        )\n}",
                     "{\n    all u: User, p: Photo |\n        (p in Ad and posts.p != u) => (p in u.sees) \n        else (some f: u.follows | p in f.posts) => (p in u.sees) \n}",
                     "{\n    all u: User, p: Photo |\n        (p in Ad and posts.p != u) => (p in u.sees)  \n        else (p not in Ad and some f: u.follows | p in f.posts) => (p in u.sees)  \n        \n        and (posts.p != u => p not in u.sees)  \n}",
+                    "{\n\t// Users can see ads posted by everyone, \n\t// but only see non ads posted by followed users.\n\n    all u: User, p: Photo |\n        (p in Ad => p in u.sees) and\n        (p not in Ad => (some u: User | u' in u.follows and p in u'.posts) => p in u.sees)\n\n}",
                     "{\n\t// Users can see ads posted by everyone, \n\t// but only see non ads posted by followed users.\n  all u : User, p : Photo |\n    p in u.sees <=>\n      (p in Ad and all u2 : User | p in u2.posts) or\n      (p !in Ad and some u2 : u.follows | p in u2.posts)\n}",
                     "{\n\t// Users can see ads posted by everyone, \n\t// but only see non ads posted by followed users.\n\tall u1,u2 : User | u2 in u1.follows => u2.sees not in (u1.posts & Ad)\n}",
                     "{\n\t// Users can see ads posted by everyone, \n\t// but only see non ads posted by followed users.\n  \tall u: User, a: Ad | a in u.sees\n  \n \tall u: User, p: Photo - Ad |\n        (some owner: User | p in owner.posts and owner in u.follows) implies p in u.sees or u.sees in u.posts\n}",
@@ -1048,6 +1050,7 @@
                     "{\n\t// If a user posts an ad then all its posts should be labeled as ads. \n\tall u: User | some(u.posts & Ad) implies (u.posts = Ad)\n}",
                     "{\n\t// If a user posts an ad then all its posts should be labeled as ads.\n  \tall u : User | (one u.posts & Ad) implies u.posts in Ad\n\n}",
                     "{\n\t// If a user posts an ad then all its posts should be labeled as ads. \n\tall u:User | one up: u.posts | up in Ad implies u.posts in Ad\n}",
+                    "{\n\t// If a user posts an ad then all its posts should be labeled as ads. \n\tall u : User | no (u.posts & Ad) and some (u.posts' & Ad) and after u.posts in Ad\n}",
                     "{\n\t// If a user posts an ad then all its posts should be labeled as ads. \n\tall x: User | (some y: Photo | x->y in posts and y in Ad) implies \n  all z: Photo | x->z in posts and z in Ad  \n}",
                     "{\n\t// If a user posts an ad then all its posts should be labeled as ads. \n  \tall x: User | some y: Ad | y in x.posts implies (all z: Photo | z in x.posts and z in Ad) \n}",
                     "{\n\t// If a user posts an ad then all its posts should be labeled as ads. \n\tall u : User, p : u.posts | Ad in p implies p = Ad\n}",
@@ -2238,7 +2241,7 @@
     },
     {
         "example": "Production line",
-        "model": "sig Workstation { workers : set Worker, succ : set Workstation } one sig begin in Workstation {} one sig end in Workstation {} sig Worker {} sig Human extends Worker {} sig Robot extends Worker {} abstract sig Product { parts : set Product } sig Material extends Product {} sig Component extends Product { workstation : set Workstation } sig Dangerous in Product {}",
+        "model": "sig Workstation { workers : set Worker, succ : set Workstation } one sig begin, end in Workstation {} sig Worker {} sig Human, Robot extends Worker {} abstract sig Product { parts : set Product } sig Material extends Product {} sig Component extends Product { workstation : set Workstation } sig Dangerous in Product {}",
         "id": "dyj49tEp7j6aWAQQX",
         "requirements": [
             {
@@ -3365,6 +3368,7 @@
                     "{\n\t// The workstations form a single line between begin and end\n\n  \tall b:begin,e:end| b!=e implies (e in ^succ.b)\n\n}",
                     "{\n\t// The workstations form a single line between begin and end\n\n  \tall b:begin,e:end| b!=e implies (e in ^succ.b)\n  \n  all w : Workstation | not w in ^succ.w  \n  \n\n}",
                     "{\n\t// The workstations form a single line between begin and end\n\n  \tall b:begin,e:end| b!=e implies (e in ^succ.b)\n  \n  all w : Workstation | not w in ^succ.w  \n  \n \tall b : begin, w : Workstation | not w->b in succ  \n\tall e : end, w : Workstation | not e->w in succ \n  \n\n}",
+                    "{\n\t// The workstations form a single line between begin and end\n\tall w : Workstation - end | one w'.succ & Workstation\n    all w : Workstation - begin | one w'.succ & w\n}",
                     "{\n\t// The workstations form a single line between begin and end\n  all w: Workstation | (w = end) or (some w.succ)\n    all w: Workstation | (w = begin) or (some w1: Workstation | w in w1.succ)\n    no w: Workstation | w in w.succ\n\n}",
                     "{\n    \n    all w : Workstation | \n        (w in begin.succ implies one w.succ) and \n        (w in end.succ implies no w.succ) \n}",
                     "{\n  \n\n  \n  no w: Workstation | w in begin.succ\n\n  \n  no w: Workstation | end in w.succ\n\n  \n  all w: Workstation - begin - end |\n    one p: Workstation | p in w.succ\n\n  \n  all w: Workstation - begin - end |\n    one s: Workstation | w in s.succ\n\n  \n  \n  all w1, w2: Workstation | \n    (w1 in w2.succ) implies (w1 != begin and w1 != end and w2 != begin and w2 != end)\n}",
@@ -3540,6 +3544,7 @@
                     "{\n    \n    \n    all c : Component , p : c.parts | \n            some wsPart, wsComponent : Workstation | \n                p in workstation.wsPart and \n                c in workstation.wsComponent and\n                wsComponent in wsPart.^succ\n}",
                     "{\n\t// The parts of a component must be assembled before it in the production line\n    all c: Component | c.parts not in c.workstation.^succ\n\n\n}",
                     "{\n  // The parts of a component must be assembled before it in the production line\n  all c:Component | some (c.parts & Component) => c.workstation in  c.parts.workstation.*succ\n\n}",
+                    "{\n\t// The parts of a component must be assembled before it in the production line\n    all c: Component | some c.workstation implies before(all p: Product | p in c.^parts implies some p.workstation or p in Material)\n}",
                     "{\n  // The parts of a component must be assembled before it in the production line\n  all c:Component | some (c.parts & Component) => c.workstation in c.^parts.workstation.^succ\n\n}",
                     "{\n\t// The parts of a component must be assembled before it in the production line\n\tall c: Component, p: c.parts |\n        some ws: c.workstation, wsPart: p.workstation |\n            wsPart in ws.(~succ) \n}",
                     "{\n\t// The parts of a component must be assembled before it in the production line\n  \n\tall c:Component | no (workstation.(c.workstation.^succ) & c.^parts)\n}",
@@ -3793,7 +3798,7 @@
     },
     {
         "example": "Train station",
-        "model": "sig Track { succs : set Track, signals : set Signal } sig Junction in Track {} sig Entry in Track {} sig Exit in Track {} sig Signal {} sig Semaphore extends Signal {} sig Speed extends Signal {}",
+        "model": "sig Track { succs : set Track, signals : set Signal } sig Junction, Entry, Exit in Track {} sig Signal {} sig Semaphore, Speed extends Signal {}",
         "id": "cXPP9QBPTYgTX6WJ6",
         "requirements": [
             {
@@ -4172,6 +4177,7 @@
                     "{\n\t// Entry tracks are those without predecessors\n\tall t: Track | t not in Track.succs\n}",
                     "{\n\t// Entry tracks are those without predecessors\n\tno (succs.Entry)\n \tall t: Track | no succs.Entry implies t in Entry\n  \n  \n  \n}",
                     "{\n\t// Entry tracks are those without predecessors\n  \t\n\tall e: Entry, t: Track | e not in Exit and e not in t.^succs\n}",
+                    "{\n\t// Entry tracks are those without predecessors\n\t\n\tall t : Track |  t' not in t.~succs implies t in Entry\n}",
                     "{\n\t// Entry tracks are those without predecessors\n  \n  all t: Track| all e: Entry| t in Entry iff no e.succs\n\n}",
                     "{\n\t// Entry tracks are those without predecessors\n  all t: Track | t in Entry implies t in t.succs or no t.succs\n  \n  \n  \n\n}",
                     "{\n\t// Entry tracks are those without predecessors\n  all t: Track | t in Entry iff t in t.succs or no t.succs\n  \n  \n  \n\n}",

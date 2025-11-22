@@ -1,0 +1,254 @@
+sig User { follows : set User, sees : set Photo, posts : set Photo, suggested : set User } sig Influencer extends User {} sig Photo { date : one Day } sig Ad extends Photo {} sig Day {}
+pred S0 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  all u: User | u.sees in (u.follows.posts + Ad)
+} }
+
+pred S1 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  	all u: User | u.sees = {Ad + u.follows.posts} 
+
+} }
+
+pred S2 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+
+} }
+
+pred S3 { { 
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+	
+  	
+  	all u: User | (u.follows.posts + Ad) in u.sees 
+  	
+} }
+
+pred S4 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  	
+
+  	
+  
+  	
+    
+    
+      
+       
+    
+  	
+  	all u: User + Influencer, a: Ad | a in u.sees
+} }
+
+pred S5 { {
+	// Users can see ads posted by everyone, 
+  	all u : User, add : Ad | add in u.sees 
+	// but only see non ads posted by followed users.
+  	all u : User, p : Photo |
+  		
+  		(p in u.sees and not p in Ad) implies
+  		
+  		some user : User | p in user.posts and user in u.follows
+  
+
+} }
+
+pred S6 { {
+    // Users can see ads posted by everyone,
+    
+    all u: User |
+        u.sees in Ad and
+        (all p: u.sees - Ad | some f: u.follows | p in f.posts - Ad)
+} }
+
+pred S7 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+   all u: User, p: Photo |
+        (p in Ad) or (some f: u.follows | p in f.posts) implies p in u.sees
+	
+} }
+
+pred S8 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+	all u: User, p: Photo | 
+        (p in sees.u) <=> (p in Ad or (some v: u.follows | p in posts.v))
+} }
+
+pred S9 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  all x : User, y : Ad | y in x.sees
+  all x : User, y : Photo-Ad | y in x.sees  implies posts.y in x.follows 
+  
+
+} }
+
+pred S10 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+	all u: User | no a: Ad | a in u.sees & u.follows.posts
+} }
+
+pred S11 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+	
+  	
+  	all u1,u2: User, p: Photo - Ad | p in u1.sees implies p in u2.posts and u2 in u1.follows
+  	
+} }
+
+pred S12 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  all u : User | u.sees = u.follows.posts
+
+} }
+
+pred S13 { {
+	// Users can see ads posted by everyone,
+	// but only see non ads posted by followed users.
+  all u : User | all p : Photo| (p in Ad implies p in u.sees) and (p not in Ad implies (some poster : User | poster in u.follows and p in poster.posts and p in u.sees))
+
+} }
+
+pred S14 { { 
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  	all u: User, a: Ad | a in u.sees
+  	all u1: User, u2: User | (u2 in u1.follows) implies (u2.posts in u1.sees)
+  	all u: User | u.posts not in u.sees
+	
+  	
+  	
+  	
+  	
+  	
+} }
+
+pred S15 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  	all u: User | u.sees in u.follows.posts
+} }
+
+pred S16 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  all u: User |
+  	u.sees = Ad
+
+} }
+
+pred S17 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+	all u:User | (u.follows.posts) in u.sees 
+} }
+
+pred S18 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+
+  all u: User, p: Photo |
+        (p in Ad => p in u.sees) and           
+        (p not in Ad => some u2: u.follows | p in u2.posts => p in u.sees) 
+  
+} }
+
+pred S19 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+	all a : Ad | some sees.a
+} }
+
+pred S20 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+	all u:User | (Ad + u.follows.posts - u.posts) = u.sees 
+} }
+
+pred S21 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  	all u: User | all a: Ad | a in u.sees
+  	all u: User | all p: u.posts | (p in Ad) or (p not in u.sees)
+  	
+  	
+  	
+  	
+	
+  	
+  	
+  	
+  	
+  	
+} }
+
+pred S22 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+	all u1, u2: User | all a: Ad | u1 != u2 and a in u2.posts and a in u1.sees
+  	all u1, u2: User | all p: Photo | u1 != u2 and p in u2.posts and u2 in u1.follows implies p in u1.sees
+
+} }
+
+pred S23 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users
+  all u:User,p :Photo |(p not in Ad) && (p in u.follows.posts) 
+  all u:User,p:Photo | p in Ad && p in u.sees
+
+} }
+
+pred S24 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  all u: User | u.sees = (Ad + u.follows.posts + u.posts)
+
+} }
+
+pred S25 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  
+    
+    
+
+    
+    
+
+    
+
+      all x:User | x.sees in (x.follows.posts & Ad)
+  
+  	
+
+
+} }
+
+pred S26 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  all u:User, a:Ad | a in u.sees
+  
+  all u1, u2:User, p: Photo - Ad | 
+  		u1 in u2.follows and p in u1.posts and u1 != u2 
+  			implies 
+  		p in u2.sees
+
+} }
+
+pred S27 { {
+	// Users can see ads posted by everyone, 
+	// but only see non ads posted by followed users.
+  	
+  all x: User, p: Photo | p in Ad or p in x.follows.posts
+
+} }

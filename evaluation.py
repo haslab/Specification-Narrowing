@@ -1,9 +1,16 @@
 from email.mime import text
 from statistics import mean,median
+from tqdm import tqdm
 import os
 import subprocess
 import sys
 import re
+import jpype
+import jpype.imports
+
+if not jpype.isJVMStarted():
+    jpype.startJVM(classpath=["AlloyMax-1.0.2.jar"])
+
 
 if len(sys.argv) != 6:
     print("Usage: python evaluation.py <algorithm> <min_scope> <max_scope> <min_size> <max_size>")
@@ -14,29 +21,24 @@ min_scope = int(sys.argv[2])
 max_scope = int(sys.argv[3])
 min_size = int(sys.argv[4])
 max_size = int(sys.argv[5])
-sizes = []
+sizes = set()
 scopes = list(range(min_scope, max_scope + 1))
 
 testcases = {}
 time = {}
 
-for filename in os.listdir('problems'):
-    if not filename.endswith('.als'):
-        continue
-    model = filename[:-4].split('_')[0]
-    requirement = filename[:-4].split('_')[1]
-    size = int(filename[:-4].split('_')[2])
-    if size > max_size:
-        continue
-    if size < min_size:
-        continue
-    if size not in sizes:
-        sizes.append(size)
+files = (f for f in os.listdir('problems') if f.endswith('.als'))
+files = {f : f[:-4].split("_") for f in files if min_size <= int(f[:-4].split("_")[2]) <= max_size}
+
+for filename in tqdm(files, desc=f"Models", unit="entries"):
+    model, requirement, size = files[filename]
+    size = int(size)
+    sizes.add(size)
     for scope in scopes:  
         if (size,scope) not in testcases:
             testcases[(size,scope)] = []
             time[(size,scope)] = []  
-        print(f"Processing model {model}, requirement {requirement}, size {size}, with scope {scope}...")
+        tqdm.write(f"Processing model {model}, requirement {requirement}, size {size}, with scope {scope}...")
         # run command line tool with timeout
         filepath = os.path.join('problems', filename)
         try:
@@ -47,16 +49,22 @@ for filename in os.listdir('problems'):
                 timeout=60
             )
             test_suite = result.stdout
-            first_line = test_suite.splitlines()[0]
-            numbers = re.findall(r'\d+\.?\d*', first_line)
-            tests = int(numbers[0])
-            seconds = float(numbers[1])
-            testcases[(size,scope)].append(tests)
-            time[(size,scope)].append(seconds)
-            print(f"    Generated {tests} test cases in {seconds:.2f} seconds.")
+            try:
+                first_line = test_suite.splitlines()[0]
+                numbers = re.findall(r'\d+\.?\d*', first_line)
+                tests = int(numbers[0])
+                seconds = float(numbers[1])
+                testcases[(size,scope)].append(tests)
+                time[(size,scope)].append(seconds)
+                tqdm.write(f"    Generated {tests} test cases in {seconds:.2f} seconds.")
+
+            except IndexError:
+                tqdm.write(f"    Generation failed: {result}")
         except subprocess.TimeoutExpired:
-            print("    Timed out!")
-sizes.sort()
+            tqdm.write("    Timed out!")
+
+sizes = sorted(list(sizes))
+
 for s in scopes:
     print("========================================")
     print("Summary for scope " + str(s))

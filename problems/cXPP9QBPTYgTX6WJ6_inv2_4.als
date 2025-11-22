@@ -1,0 +1,21 @@
+sig Track { succs : set Track, signals : set Signal } sig Junction, Entry, Exit in Track {} sig Signal {} sig Semaphore, Speed extends Signal {}
+pred S0 { {
+	// Signals belong to one track
+  all s: Signal | one t: Track | s in t.signals
+} }
+
+pred S1 { {
+	// Signals belong to one track
+	all t1, t2 : Track | all s : Signal | s in t1.signals and s in t2.signals implies t1=t2
+} }
+
+pred S2 { {
+	// Signals belong to one track
+	all s : Signal | s in Track.signals
+} }
+
+pred S3 { {
+	// Signals belong to one track
+  	no disj t1, t2: Track | t1.signals in t2. signals
+
+} }
