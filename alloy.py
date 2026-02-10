@@ -11,7 +11,7 @@ names: NAME ("," NAME)*
 field: NAME ":" TYPE
 fact: "fact" NAME "{" [expr] "}"
 predicate: "pred" NAME "{" [expr] "}"
-expr: ANY? ("{" expr "}")? expr?
+expr: ANY? ("{" expr "}")? ANY?
 MULTIPLICITY: "one" | "lone" | "some"
 RELATION: "extends" | "in"
 ABSTRACT: "abstract"
