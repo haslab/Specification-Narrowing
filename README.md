@@ -233,7 +233,7 @@ Where `<algorithm>` is either `optimal` or `nonoptimal`.
 
 ### Results
 
-The script was run for some combinations of specification set size and scopes to answer the paper's RQs. The results pre-calculated results is available at [`results.txt`](results.txt).
+The script was run for some combinations of specification set size and scopes to answer the paper's RQs. The pre-calculated results is available at [`results.txt`](results.txt).
 
 ```
 python3 evaluation.py optimal 3 3 4 28
