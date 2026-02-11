@@ -17,20 +17,20 @@ def optimal_test_set(content, scope):
 
     model = "sig Atom {}\nabstract sig Formula {}\none sig " + ",".join(collector.predicates.keys()) + " extends Formula {}\nsig Instance {\n"
 
-    for sig in collector.signatures:
+    for sig in sorted(collector.signatures):
         model += "\t" + sig + " : set Atom,\n"
     for field, typ in collector.fields.items():
         arity = typ.count("->") + 1
         model += "\t" + field + " : " + " -> ".join(["Atom"] * arity) + ",\n"
     model += "\tvalid : set Formula\n} {\n"
 
-    for sig in collector.toplevel:
+    for sig in sorted(collector.toplevel):
         model += "\t#" + sig + " <= " + str(scope) + "\n"
     for sig, parent in collector.subsets.items():
         model += "\t" + sig + " in " + parent + "\n"
-    for a,b in combinations(collector.toplevel, 2):
+    for a,b in combinations(sorted(collector.toplevel), 2):
         model += "\tno " + a + " & " + b + "\n"
-    for sig in collector.abstract:
+    for sig in sorted(collector.abstract):
         model += "\t" + sig + " = " + " + ".join(collector.extensions.get(sig, [])) + "\n"
     for sig in collector.extensions:
         for a,b in combinations(collector.extensions[sig], 2):
@@ -40,14 +40,14 @@ def optimal_test_set(content, scope):
     for field, typ in collector.fields.items():
         model += "\t" + field + " in " + typ + "\n"
 
-    for fact,formula in collector.facts.items():
+    for formula in collector.facts.values():
         model += "\t{" + formula + "}\n"
 
     for pred,formula in collector.predicates.items():
         model += "\t" + pred + " in valid iff {" + formula + "\n\t}\n"
 
 
-    model += "}\nrun {\n\tall disj f,g : Formula | some i : Instance | f in i.valid iff g not in i.valid\n\tminsome Instance\n} for " + str(scope*len(collector.toplevel)) + " Atom, " + str(len(collector.predicates)-1) + " Instance\n"
+    model += "}\nrun {\n\tall disj f,g : Formula | some i : Instance | f in i.valid iff g not in i.valid\n\tminsome Instance} for " + str(scope*len(collector.toplevel)) + " Atom, " + str(len(collector.predicates)-1) + " Instance\n"
 
     world = CompUtil.parseEverything_fromString(None,model)
     command = world.getAllCommands()[0]

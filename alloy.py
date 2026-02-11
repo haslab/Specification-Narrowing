@@ -95,10 +95,10 @@ def build_instance(collector, value):
         for tuple in value[sig]:
             atoms.add(str(tuple[0]).replace('$',''))
     if atoms:
-        instance = "\tsome disj " + ",".join(atoms) + " : univ {\n"
+        instance = "\tsome disj " + ",".join(sorted(atoms)) + " : univ {\n"
     else:
         instance = "\t{\n"
-    for rel in value:
+    for rel in sorted(value):
         tuples = value[rel]
         if tuples:
             relation = []
