@@ -8,7 +8,7 @@
 - [`optimal.py`](./optimal.py) and [`nonoptimal.py`](./nonoptimal.py): directory containing scripts to call LLM APIs and ask for valid/invalid instances given a dataset of requirements and header prompts
 - [`results.txt`](./results): pre-collected results from running the evaluation over the benchmark.
 - [`AlloyMax-1.0.2.jar`](./AlloyMax-1.0.2.jar): snapshot of AlloyMax, used to parse and execute Alloy models and commands.
-- [`paper.als`](./paper.als): example Alloy model used as the paper's running example.
+- [`paper`](./paper/): directory with the running example used in the paper, including GPT-5.2 interaction.
 
 # Results
 
