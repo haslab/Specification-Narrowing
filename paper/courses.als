@@ -4,8 +4,7 @@ sig Person {
 	workson : set Project
 }
 
-sig Professor in Person {}
-sig Student in Person {}
+sig Professor, Student in Person {}
 
 sig Course {
 	projects : set Project

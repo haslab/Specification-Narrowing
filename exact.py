@@ -1,7 +1,9 @@
-import sys
+"""Cardinality-minimum distinguishing-batch synthesis with Exact MaxSAT."""
+
+import argparse
 from timeit import default_timer as timer
 from itertools import combinations
-from alloy import parse, build_instance, print_instances
+from alloy import int_bitwidth, parse, build_instance, print_instances, requires_trace_length
 
 import jpype
 import jpype.imports
@@ -12,8 +14,8 @@ if not jpype.isJVMStarted():
 from edu.mit.csail.sdg.parser import CompUtil
 from edu.mit.csail.sdg.translator import A4Options, TranslateAlloyToKodkod
 
-def optimal_test_set(content, scope):
-    collector = parse(content)
+def exact_test_set(content, scope, trace_length=None):
+    collector = parse(content, trace_length=trace_length)
 
     model = "sig Atom {}\nabstract sig Formula {}\none sig " + ",".join(collector.predicates.keys()) + " extends Formula {}\nsig Instance {\n"
 
@@ -25,7 +27,8 @@ def optimal_test_set(content, scope):
     model += "\tvalid : set Formula\n} {\n"
 
     for sig in sorted(collector.toplevel):
-        model += "\t#" + sig + " <= " + str(scope) + "\n"
+        if not (collector.temporal and sig == "State"):
+            model += "\t#" + sig + " <= " + str(scope) + "\n"
     for sig, parent in collector.subsets.items():
         model += "\t" + sig + " in " + parent + "\n"
     for a,b in combinations(sorted(collector.toplevel), 2):
@@ -47,13 +50,27 @@ def optimal_test_set(content, scope):
         model += "\t" + pred + " in valid iff {" + formula + "\n\t}\n"
 
 
-    model += "}\nrun {\n\tall disj f,g : Formula | some i : Instance | f in i.valid iff g not in i.valid\n\tminsome Instance} for " + str(scope*len(collector.toplevel)) + " Atom, " + str(len(collector.predicates)-1) + " Instance\n"
-
-    world = CompUtil.parseEverything_fromString(None,model)
+    atom_scope = scope * len(collector.toplevel)
+    if collector.temporal:
+        atom_scope += collector.trace_length - scope
+    instance_scope = len(collector.predicates) - 1
+    separation = "\tall disj f,g : Formula | some i : Instance | f in i.valid iff g not in i.valid\n"
+    model += "}\n"
+    bitwidth = max(scope, int_bitwidth(atom_scope))
+    analysis = (
+        model
+        + "run {\n"
+        + separation
+        + f"\tminsome Instance}} for {atom_scope} Atom, "
+        + f"{instance_scope} Instance, {bitwidth} Int\n"
+    )
+    world = CompUtil.parseEverything_fromString(None, analysis)
     command = world.getAllCommands()[0]
     options = A4Options()
     options.solver = A4Options.SatSolver.SAT4JMax
-    solution = TranslateAlloyToKodkod.execute_command(None, world.getAllReachableSigs(), command, options)
+    solution = TranslateAlloyToKodkod.execute_command(
+        None, world.getAllReachableSigs(), command, options
+    )
     if not solution.satisfiable():
         print("Some predicates are equivalent.")
         return []
@@ -77,22 +94,41 @@ def optimal_test_set(content, scope):
 
 
 def main():
-        # check command line arguments
-    if len(sys.argv) != 3:
-        print("Usage: python parser.py <filename> <scope>")
-        sys.exit(1)
+    argument_parser = argparse.ArgumentParser(
+        description=(
+            "Generate a cardinality-minimum distinguishing batch of Alloy "
+            "instances or traces."
+        )
+    )
+    argument_parser.add_argument("filename")
+    argument_parser.add_argument("scope", type=int, help="structural Alloy scope")
+    argument_parser.add_argument(
+        "trace_length",
+        type=int,
+        nargs="?",
+        help="maximum trace length (required for temporal models)",
+    )
+    args = argument_parser.parse_args()
 
-    filename = sys.argv[1]
-    scope = int(sys.argv[2])
-
-    with open(filename,'r') as file:
+    with open(args.filename, 'r') as file:
         content = file.read() 
+        if requires_trace_length(content) and args.trace_length is None:
+            argument_parser.error(
+                "trace_length is required for models using Alloy 6 temporal features"
+            )
         start = timer()
-        test_set = optimal_test_set(content, scope)
+        test_set = exact_test_set(
+            content,
+            args.scope,
+            args.trace_length,
+        )
         end = timer()
         print(f"// Generated {len(test_set)} test cases in {end - start} seconds")
-        print_instances(test_set, scope)
+        print_instances(
+            test_set,
+            args.scope,
+            parse(content, trace_length=args.trace_length),
+        )
 
 if __name__ == "__main__":
     main()
-

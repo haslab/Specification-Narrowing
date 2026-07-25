@@ -1,3 +1,2 @@
-lark
 jpype1
 tqdm
