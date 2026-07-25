@@ -100,15 +100,7 @@ not repeat saved work. `--resume` can still be supplied explicitly:
 python3 evaluation.py --resume
 ```
 
-Older schemas in `evaluation-results.json` are migrated in place. Existing
-recursive, exact, enumeration, scope-study, and online-comparison results are
-retained. Migration can be performed without starting synthesis:
-
-```
-python3 evaluation.py --migrate-only
-```
-
-To run only the missing RQ2 scope experiment after migration:
+To run only the RQ2 scope experiment:
 
 ```
 python3 evaluation.py --study scope
@@ -122,24 +114,26 @@ file and start over.
 runs. A timed-out worker is terminated before the evaluation continues, so it
 does not leave a Python/JVM synthesis process running.
 
-## Temporal Alloy 6 specifications
+## Running the narrowing tool
 
-The narrowing scripts also accept future-time Alloy 6 specifications such as
-[`paper/light.als`](paper/light.als). Mutable subset signatures and mutable
-fields are translated to explicit state-indexed relations, and temporal
-operators are embedded into Alloy 5 over a bounded lasso trace. The back-loop
-from the last state is mandatory, so every generated test denotes an infinite,
-ultimately periodic execution.
+The included [`paper/courses.als`](paper/courses.als) model contains six
+alternative static specifications. For example, these commands construct
+recursive and cardinality-minimum distinguishing batches at scope 3:
+
+```
+python3 narrow.py recursive paper/courses.als 3
+python3 narrow.py exact paper/courses.als 3
+```
+
+The scripts also accept future-time Alloy 6 specifications. Mutable subset
+signatures and mutable fields are translated to explicit state-indexed
+relations, and temporal operators are embedded into Alloy 5 over a bounded
+lasso trace. The mandatory back-loop makes every generated temporal test an
+infinite, ultimately periodic execution.
 
 Temporal models require a separate `trace-length` argument. It is an upper
 bound, so the solver may generate any lasso containing between one and that
-many states. For example, the following commands use structural scope 3 and a
-maximum trace length of 5:
-
-```
-python3 narrow.py recursive paper/light.als 3 5
-python3 narrow.py exact paper/light.als 3 5
-```
+many states.
 
 With the Exact MaxSAT method, AlloyMax minimizes the number of generated
 instances. Trace length is only an upper bound and is not a secondary
@@ -188,7 +182,7 @@ generated test at a time and identifies the alternative specification whose
 truth values agree with the answers:
 
 ```
-python3 narrow.py balanced paper/light.als 3 5 --classify
+python3 narrow.py balanced paper/courses.als 3 --classify
 ```
 
 Each step chooses from the fixed generated suite the unused test that most
@@ -210,7 +204,7 @@ ordered tests automatically, treating the named predicate as the ground
 truth. The command reports how many classifications are required to select it:
 
 ```
-python3 narrow.py balanced paper/light.als 3 5 --simulate Spec2
+python3 narrow.py balanced paper/courses.als 3 --simulate Spec2
 ```
 
 Both interactive and simulated runs report aggregate synthesis and evaluation

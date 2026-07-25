@@ -50,13 +50,6 @@ METHOD_METADATA = {
 CURRENT_FORMAT_VERSION = 7
 ALLOYMAX_VERSION = "1.0.2"
 DEFAULT_ONLINE_TIMEOUT_SECONDS = 180.0
-LEGACY_RESULT_KEYS = {
-    "nonadaptive_optimal": "exact",
-    "nonadaptive_nonoptimal": "recursive",
-    "batch_exact": "exact",
-    "batch_recursive": "recursive",
-    "batch_enumerate": "enumerate",
-}
 RESULT_PREFIX = "__SPEC_NARROWING_RESULT__"
 ONLINE_RESULT_PREFIX = "__SPEC_NARROWING_ONLINE_RESULT__"
 
@@ -723,6 +716,10 @@ def online_comparison_summary(document):
         for online, batch in zip(online_configuration_means, batch_seconds)
         if batch > 0
     ]
+    paired_differences = [
+        batch - online
+        for batch, online in zip(batch_seconds, online_configuration_means)
+    ]
     return {
         "completed_configurations": len(completed),
         "completed_oracle_paths": len(online_paths),
@@ -743,6 +740,15 @@ def online_comparison_summary(document):
         "online_to_batch_ratio": {
             "mean": statistics.mean(ratios),
             "median": statistics.median(ratios),
+        },
+        "paired_batch_minus_online_seconds": {
+            "mean": statistics.mean(paired_differences),
+            "median": statistics.median(paired_differences),
+            "min": min(paired_differences),
+            "max": max(paired_differences),
+            "batch_slower_configurations": sum(
+                difference > 0 for difference in paired_differences
+            ),
         },
     }
 
@@ -879,114 +885,6 @@ def save_results(output: Path, document):
     os.replace(temporary, output)
 
 
-def migrate_legacy_document(document):
-    """Normalize older batch and embedded-study result schemas."""
-
-    changed = False
-    configuration = document.setdefault("configuration", {})
-    main_timeout = configuration.get("synthesis_timeout_seconds")
-
-    def migrate_results(results, synthesis_timeout_seconds):
-        nonlocal changed
-        for obsolete in (
-            "online_balanced",
-            "online_pairwise",
-            "adaptive_optimal",
-            "adaptive_nonoptimal",
-        ):
-            if results.pop(obsolete, None) is not None:
-                changed = True
-        for old_key, new_key in LEGACY_RESULT_KEYS.items():
-            if old_key not in results:
-                continue
-            result = results.pop(old_key)
-            result["algorithm"] = new_key
-            result.pop("mode", None)
-            result.pop("strategy", None)
-            results.setdefault(new_key, result)
-            changed = True
-        for algorithm in ALGORITHMS:
-            result = results.get(algorithm)
-            if result is None:
-                continue
-            if result.get("algorithm") != algorithm:
-                result["algorithm"] = algorithm
-                changed = True
-            if result.pop("mode", None) is not None:
-                changed = True
-            if result.pop("strategy", None) is not None:
-                changed = True
-            old_timeout = result.pop("timeout_seconds", None)
-            if old_timeout is not None:
-                changed = True
-                if synthesis_timeout_seconds is None:
-                    synthesis_timeout_seconds = old_timeout
-            if (
-                synthesis_timeout_seconds is not None
-                and result.get("synthesis_timeout_seconds")
-                != synthesis_timeout_seconds
-            ):
-                result["synthesis_timeout_seconds"] = synthesis_timeout_seconds
-                changed = True
-
-    for problem in document.get("problems", []):
-        migrate_results(problem.get("algorithms", {}), main_timeout)
-
-    scope_study = document.get("scope_study")
-    if scope_study is not None:
-        study_configuration = scope_study.setdefault("configuration", {})
-        scope_timeout = study_configuration.get(
-            "synthesis_timeout_seconds", main_timeout
-        )
-        for problem in scope_study.get("problems", []):
-            for results in problem.get("scopes", {}).values():
-                migrate_results(results, scope_timeout)
-        if study_configuration.get("algorithms") != list(SCOPE_STUDY_ALGORITHMS):
-            study_configuration["algorithms"] = list(SCOPE_STUDY_ALGORITHMS)
-            changed = True
-        scope_metadata = method_metadata(SCOPE_STUDY_ALGORITHMS)
-        if study_configuration.get("method_metadata") != scope_metadata:
-            study_configuration["method_metadata"] = scope_metadata
-            changed = True
-
-    online_study = document.get("online_comparison")
-    if online_study is not None:
-        online_timeout = online_study.get("configuration", {}).get(
-            "synthesis_timeout_seconds",
-            online_study.get("configuration", {}).get(
-                "timeout_seconds", DEFAULT_ONLINE_TIMEOUT_SECONDS
-            ),
-        )
-        changed |= ensure_online_comparison(document, online_timeout)
-
-    if configuration.get("alloymax_version") != ALLOYMAX_VERSION:
-        configuration["alloymax_version"] = ALLOYMAX_VERSION
-        changed = True
-    current_algorithms = list(ALGORITHMS)
-    if configuration.get("algorithms") != current_algorithms:
-        configuration["algorithms"] = current_algorithms
-        changed = True
-    current_metadata = method_metadata(ALGORITHMS)
-    if configuration.get("method_metadata") != current_metadata:
-        configuration["method_metadata"] = current_metadata
-        changed = True
-    for obsolete in (
-        "adaptive_policy_cache",
-        "online_policy_cache",
-        "online_timeout_policy",
-    ):
-        if configuration.pop(obsolete, None) is not None:
-            changed = True
-    if changed:
-        document["format_version"] = CURRENT_FORMAT_VERSION
-        document["summary_by_candidate_count"] = grouped_summary(
-            document.get("problems", [])
-        )
-        if scope_study is not None:
-            scope_study["summary"] = scope_study_summary(scope_study)
-    return changed
-
-
 def argument_parser():
     parser = argparse.ArgumentParser(
         description=(
@@ -1042,11 +940,6 @@ def argument_parser():
         action="store_true",
         help="discard an existing output file and start a new evaluation",
     )
-    parser.add_argument(
-        "--migrate-only",
-        action="store_true",
-        help="upgrade and seed the result schema without running synthesis",
-    )
     return parser
 
 
@@ -1091,7 +984,11 @@ def _load_document(args):
     changed = False
     if args.output.exists() and not args.overwrite:
         document = json.loads(args.output.read_text())
-        changed |= migrate_legacy_document(document)
+        if document.get("format_version") != CURRENT_FORMAT_VERSION:
+            raise SystemExit(
+                "cannot resume: unsupported result format; use a format-"
+                f"{CURRENT_FORMAT_VERSION} file or --overwrite"
+            )
         configuration = document.get("configuration", {})
         if configuration.get("scope") != args.scope:
             raise SystemExit("cannot resume: output scope does not match --scope")
@@ -1100,12 +997,10 @@ def _load_document(args):
         if not args.resume:
             print(f"Resuming existing results in {args.output}.", flush=True)
     else:
-        if args.migrate_only:
-            raise SystemExit("--migrate-only requires an existing output file")
         document = _new_document(args)
         changed = True
 
-    if args.study in {"all", "scope"} or args.migrate_only:
+    if args.study in {"all", "scope"}:
         scopes = range(args.scope_study_min, args.scope_study_max + 1)
         try:
             changed |= ensure_scope_study(
@@ -1116,11 +1011,7 @@ def _load_document(args):
             )
         except ValueError as error:
             raise SystemExit(str(error)) from error
-    elif document.get("format_version") != CURRENT_FORMAT_VERSION:
-        document["format_version"] = CURRENT_FORMAT_VERSION
-        changed = True
-
-    if args.study in {"all", "online"} or args.migrate_only:
+    if args.study in {"all", "online"}:
         try:
             changed |= ensure_online_comparison(document, args.online_timeout)
         except ValueError as error:
@@ -1333,8 +1224,10 @@ def run_online_study(args, document):
             f"{result['status']}{detail}",
             flush=True,
         )
-    study["summary"] = online_comparison_summary(document)
-    save_results(args.output, document)
+    summary = online_comparison_summary(document)
+    if study.get("summary") != summary:
+        study["summary"] = summary
+        save_results(args.output, document)
 
 
 def print_main_summary(document):
@@ -1430,9 +1323,6 @@ def main(argv=None):
     if args.scope_study_min > args.scope_study_max:
         raise SystemExit("--scope-study-min cannot exceed --scope-study-max")
     document = _load_document(args)
-    if args.migrate_only:
-        print(f"Migrated {args.output} without running synthesis.", flush=True)
-        return 0
 
     from alloy import parse
     from classification import predicate_holds
