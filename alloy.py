@@ -83,7 +83,7 @@ def _lex(source: str) -> list[Token]:
             continue
         if source[i].isalpha() or source[i] in "_$":
             end = i + 1
-            while end < len(source) and (source[end].isalnum() or source[end] in "_$/'?"):
+            while end < len(source) and (source[end].isalnum() or source[end] in "_$/?"):
                 end += 1
             tokens.append(Token(source[i:end], i, end))
             i = end
@@ -159,6 +159,7 @@ class FormulaNode:
     kind: str
     value: str = ""
     left: Optional["FormulaNode"] = None
+    middle: Optional["FormulaNode"] = None
     right: Optional["FormulaNode"] = None
     source: str = ""
 
@@ -214,6 +215,83 @@ class FormulaParser:
                 result.append(i)
         return result
 
+    @staticmethod
+    def _can_end_formula(token: Token) -> bool:
+        non_operands = (
+            BOOLEAN_UNARY
+            | set(BOOLEAN_BINARY)
+            | TEMPORAL_UNARY
+            | TEMPORAL_BINARY
+            | {
+                "all", "some", "one", "lone", "no", "let", "else",
+                "in", "!in", "disj", "set",
+            }
+        )
+        return bool(
+            token.text in {")", "]", "}", "'"}
+            or (
+                token.text not in non_operands
+                and re.fullmatch(
+                    r"[A-Za-z_$][A-Za-z0-9_$/?]*|[0-9]+",
+                    token.text,
+                )
+            )
+        )
+
+    @staticmethod
+    def _can_start_formula(token: Token) -> bool:
+        return bool(
+            token.text in {"(", "{", "#", "~", "^", "*", "@"}
+            or token.text
+            in BOOLEAN_UNARY
+            | TEMPORAL_UNARY
+            | {"all", "some", "one", "lone", "no", "let"}
+            or re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$/?]*|[0-9]+", token.text)
+        )
+
+    def _implicit_conjunctions(self, lo: int, hi: int) -> list[int]:
+        """Find adjacent top-level formulas in an Alloy block.
+
+        Alloy treats formulas juxtaposed in a block as a conjunction.  Clear
+        prefix operators can start the next formula on the same line; other
+        expression starts are treated as a boundary when separated by a line
+        break.
+        """
+
+        clear_starts = (
+            BOOLEAN_UNARY
+            | TEMPORAL_UNARY
+            | {"all", "some", "one", "lone", "no", "let"}
+        )
+        result = []
+        depth = 0
+        for index in range(lo, hi):
+            text = self.tokens[index].text
+            if text in {"(", "[", "{"}:
+                depth += 1
+                continue
+            if text in {")", "]", "}"}:
+                depth -= 1
+                continue
+            if index == lo or depth != 0:
+                continue
+            previous = self.tokens[index - 1]
+            token = self.tokens[index]
+            if (
+                token.text == "not"
+                and index + 1 < hi
+                and self.tokens[index + 1].text == "in"
+            ):
+                continue
+            gap = self.source[previous.end:token.start]
+            if (
+                self._can_end_formula(previous)
+                and self._can_start_formula(token)
+                and ("\n" in gap or token.text in clear_starts)
+            ):
+                result.append(index)
+        return result
+
     def _parse(self, lo: int, hi: int) -> FormulaNode:
         while hi - lo >= 2 and self._encloses(lo, hi):
             lo += 1
@@ -231,6 +309,46 @@ class FormulaParser:
                     "binder",
                     value=f"{first} {declaration}",
                     left=self._parse(bar + 1, hi),
+                )
+
+        # A quantifier is the complete operand of a leading unary operator;
+        # its body extends through the rest of the formula after ``|``.
+        # Handle that shape before looking for Boolean operators in the body.
+        if (
+            first in BOOLEAN_UNARY | TEMPORAL_UNARY
+            and lo + 1 < hi
+            and self.tokens[lo + 1].text in {"all", "some", "one", "lone", "no", "let"}
+            and self._top_level(lo + 2, hi, {"|"})
+        ):
+            op = "not" if first in BOOLEAN_UNARY else first
+            return FormulaNode(op, left=self._parse(lo + 1, hi))
+
+        conjunctions = self._implicit_conjunctions(lo, hi)
+        if conjunctions:
+            starts = [lo, *conjunctions]
+            ends = [*conjunctions, hi]
+            nodes = [self._parse(start, end) for start, end in zip(starts, ends)]
+            result = nodes[0]
+            for node in nodes[1:]:
+                result = FormulaNode("and", left=result, right=node)
+            return result
+
+        # Alloy's conditional expression uses implication syntax with an
+        # associated else branch.  Parse it before ordinary binary implies.
+        else_positions = self._top_level(lo, hi, {"else"})
+        if else_positions:
+            else_index = else_positions[0]
+            implies_positions = [
+                index
+                for index in self._top_level(lo, else_index, {"implies", "=>"})
+            ]
+            if implies_positions:
+                implies_index = implies_positions[0]
+                return FormulaNode(
+                    "conditional",
+                    left=self._parse(lo, implies_index),
+                    middle=self._parse(implies_index + 1, else_index),
+                    right=self._parse(else_index + 1, hi),
                 )
 
         # Ordered from weakest to strongest binding.  Right-associative
@@ -264,6 +382,7 @@ def _contains_temporal(node: FormulaNode) -> bool:
         return True
     return bool(
         (node.left is not None and _contains_temporal(node.left))
+        or (node.middle is not None and _contains_temporal(node.middle))
         or (node.right is not None and _contains_temporal(node.right))
     )
 
@@ -277,10 +396,9 @@ def _needs_temporal_translation(
 
     mutable = mutable_global | mutable_local
     for token in _lex(source):
-        if token.text in TEMPORAL_UNARY | TEMPORAL_BINARY:
+        if token.text in TEMPORAL_UNARY | TEMPORAL_BINARY | {"'"}:
             return True
-        base = token.text.rstrip("'")
-        if base in mutable:
+        if token.text in mutable:
             return True
     return False
 
@@ -292,6 +410,17 @@ def _nnf(node: FormulaNode, negated: bool = False) -> FormulaNode:
         return _nnf(node.left, not negated)
     if node.kind == "implies":
         expanded = FormulaNode("or", left=FormulaNode("not", left=node.left), right=node.right)
+        return _nnf(expanded, negated)
+    if node.kind == "conditional":
+        expanded = FormulaNode(
+            "or",
+            left=FormulaNode("and", left=node.left, right=node.middle),
+            right=FormulaNode(
+                "and",
+                left=FormulaNode("not", left=node.left),
+                right=node.right,
+            ),
+        )
         return _nnf(expanded, negated)
     if node.kind == "iff":
         same = FormulaNode(
@@ -341,19 +470,29 @@ def _bound_names(keyword: str, declaration: str) -> set[str]:
                 names.update(
                     token.text
                     for token in part[:equals]
-                    if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$/'?]*", token.text)
+                    if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$/?]*", token.text)
                 )
         return names
 
-    # Quantified declarations may share a type (``p,q: P``).  An identifier
-    # belongs to the declaration's left side until its first top-level colon.
-    colon = next((i for i, token in enumerate(tokens) if token.text == ":"), len(tokens))
-    return {
-        token.text
-        for token in tokens[:colon]
-        if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$/'?]*", token.text)
-        and token.text not in {"disj", "one", "lone", "some", "set"}
-    }
+    # Quantified declarations may share a type (``p,q: P``) or introduce
+    # several groups (``p: P, q: Q``).  Accumulate comma-separated name parts
+    # until their top-level colon supplies a type.
+    names = set()
+    pending: list[Token] = []
+    for part in _split_top_level(tokens, ","):
+        colon = next((i for i, token in enumerate(part) if token.text == ":"), None)
+        if colon is None:
+            pending.extend(part)
+            continue
+        name_tokens = pending + part[:colon]
+        pending = []
+        names.update(
+            token.text
+            for token in name_tokens
+            if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$/?]*", token.text)
+            and token.text not in {"disj", "one", "lone", "some", "set"}
+        )
+    return names
 
 
 class TemporalRenderer:
@@ -370,28 +509,79 @@ class TemporalRenderer:
         self.counter += 1
         return f"__sn_t{self.counter}"
 
+    @staticmethod
+    def _prime_depths(tokens: list[Token]) -> list[int]:
+        """Return the number of postfix primes applying to every token.
+
+        A prime following a name applies to that name.  A prime following a
+        parenthesized expression applies to every token in that expression;
+        nested and repeated primes therefore accumulate naturally.
+        """
+
+        depths = [0] * len(tokens)
+        opening_for_close: dict[int, int] = {}
+        stack: list[tuple[str, int]] = []
+        closing = {")": "(", "]": "[", "}": "{"}
+        for index, token in enumerate(tokens):
+            if token.text in {"(", "[", "{"}:
+                stack.append((token.text, index))
+            elif token.text in closing:
+                expected = closing[token.text]
+                if stack and stack[-1][0] == expected:
+                    _opening, opening_index = stack.pop()
+                    opening_for_close[index] = opening_index
+
+        index = 0
+        while index < len(tokens):
+            if tokens[index].text != "'":
+                index += 1
+                continue
+            end = index
+            while end < len(tokens) and tokens[end].text == "'":
+                end += 1
+            count = end - index
+            operand = index - 1
+            if operand < 0:
+                raise AlloyParseError("prime operator has no preceding expression")
+            if operand in opening_for_close:
+                first = opening_for_close[operand] + 1
+                last = operand
+            elif re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$/?]*|[0-9]+", tokens[operand].text):
+                first = operand
+                last = operand + 1
+            else:
+                raise AlloyParseError("prime operator has no preceding expression")
+            for nested in range(first, last):
+                depths[nested] += count
+            index = end
+        return depths
+
+    def _at(self, state: str, depth: int) -> str:
+        at = state
+        for _ in range(depth):
+            at = f"({at}).{self.successor()}"
+        return at
+
     def _rewrite_atom(self, source: str, state: str, bound: set[str]) -> str:
         tokens = _lex(source)
         if not tokens:
             return source
+        prime_depths = self._prime_depths(tokens)
         replacements: list[tuple[int, int, str]] = []
-        max_prime = 0
-        for token in tokens:
-            raw = token.text
-            base = raw.rstrip("'")
-            primes = len(raw) - len(base)
-            if base in bound:
+        max_prime = max(prime_depths, default=0)
+        for index, token in enumerate(tokens):
+            if token.text == "'":
+                replacements.append((token.start, token.end, ""))
                 continue
-            if base not in self.mutable_global and base not in self.mutable_local:
+            if token.text in bound:
                 continue
-            max_prime = max(max_prime, primes)
-            at = state
-            for _ in range(primes):
-                at = f"({at}).{self.successor()}"
-            if base in self.mutable_global:
-                replacement = f"({at}).{base}"
+            if token.text not in self.mutable_global and token.text not in self.mutable_local:
+                continue
+            at = self._at(state, prime_depths[index])
+            if token.text in self.mutable_global:
+                replacement = f"({at}).{token.text}"
             else:
-                replacement = f"{base}.({at})"
+                replacement = f"{token.text}.({at})"
             replacements.append((token.start, token.end, replacement))
 
         rendered = source
@@ -798,7 +988,11 @@ def parse(content: str, trace_length: Optional[int] = None) -> Collector:
             "past-time and sequential temporal operators are not yet supported by the "
             f"Alloy 5 translation ({', '.join(sorted(unsupported))})"
         )
-    temporal_formula = any(_contains_temporal(FormulaParser(body).parse()) for body in formula_sources)
+    temporal_formula = any(
+        _contains_temporal(FormulaParser(body).parse())
+        or any(token.text == "'" for token in _lex(body))
+        for body in formula_sources
+    )
     temporal_declaration = any(decl.variable for decl in collector._signature_decls) or any(
         decl.variable for decl in collector._field_decls
     )
@@ -814,7 +1008,7 @@ def requires_trace_length(content: str) -> bool:
     """Return whether a model uses mutable or temporal Alloy 6 syntax."""
 
     temporal_tokens = TEMPORAL_UNARY | TEMPORAL_BINARY | UNSUPPORTED_TEMPORAL | {"var"}
-    return any(token.text in temporal_tokens or token.text.endswith("'") for token in _lex(content))
+    return any(token.text in temporal_tokens or token.text == "'" for token in _lex(content))
 
 
 def int_bitwidth(max_cardinality: int) -> int:

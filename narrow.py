@@ -278,8 +278,6 @@ def main():
         content = file.read()
 
     temporal_input = requires_trace_length(content)
-    if algorithm == "enumerate" and temporal_input:
-        parser.error("enumerate is restricted to static Alloy models")
     if temporal_input and args.trace_length is None:
         parser.error(
             "trace_length is required for models using Alloy 6 temporal features"

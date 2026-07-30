@@ -1,52 +1,132 @@
+"""Generate narrowing benchmark problems from the Alloy4Fun dataset."""
+
+import argparse
 import json
-import os
-import sys
+from pathlib import Path
 
-import jpype
-import jpype.imports
+from alloy import AlloyParseError, parse
 
-if len(sys.argv) < 5:
-    print("Usage: python generate.py <min_size> <max_size> <step_size> <models>")
-    sys.exit(1)
 
-min_size = int(sys.argv[1])
-max_size = int(sys.argv[2])
-stp_size = int(sys.argv[3])
-models = sys.argv[4:]
+# Validation only needs a positive bound to exercise the same Alloy 6 -> Alloy 5
+# translation used by narrow.py.  The generated problem does not embed this bound.
+VALIDATION_TRACE_LENGTH = 1
 
-# the min number of wrong specifications per requirement is 29
-sizes = list(range(min_size, max_size+1, stp_size))
 
-if not jpype.isJVMStarted():
-    jpype.startJVM(classpath=["AlloyMax-1.0.2.jar"])
+def argument_parser():
+    parser = argparse.ArgumentParser(
+        description="Generate benchmark Alloy models from dataset.json."
+    )
+    parser.add_argument("min_size", type=int)
+    parser.add_argument("max_size", type=int)
+    parser.add_argument("step_size", type=int)
+    parser.add_argument("models", nargs="+")
+    parser.add_argument(
+        "--mode",
+        choices=("static", "temporal"),
+        default="static",
+        help=(
+            "validation mode: static rejects Alloy 6 temporal features; temporal "
+            "accepts the bounded temporal subset supported by narrow.py"
+        ),
+    )
+    return parser
 
-def syntax_ok(base, req):
+
+def _trace_length(mode):
+    return VALIDATION_TRACE_LENGTH if mode == "temporal" else None
+
+
+def _alloy5_error(content):
+    """Return an AlloyMax parse/type error for translated content, if any."""
+
+    import jpype
+    import jpype.imports
+
+    if not jpype.isJVMStarted():
+        jar = Path(__file__).with_name("AlloyMax-1.0.2.jar")
+        jpype.startJVM(classpath=[str(jar)])
+
+    from edu.mit.csail.sdg.alloy4 import Err
+    from edu.mit.csail.sdg.parser import CompUtil
+
     try:
-        from edu.mit.csail.sdg.parser import CompUtil
-        from edu.mit.csail.sdg.alloy4 import ErrorSyntax
-        model = f"{base}\nrun {{ {req} }}"
-        CompUtil.parseEverything_fromString(None,model)
-        return True
-    except ErrorSyntax as e:  
-        print("Discarded specification:", e.msg)
-        return False
+        CompUtil.parseEverything_fromString(None, content)
+        return None
+    except Err as error:
+        return str(error.msg)
 
-with open('dataset.json', 'r') as f:
-    dataset = json.load(f)
-    for example in (d for d in dataset if d["id"] in models):
-        base_model = example['model']
-        for req in example['requirements']:
-            all_specifications = [r for r in [req["oracle"]] + req["erroneous"] if syntax_ok(base_model, r)]
 
-            for n in sizes:
-                if n > len(all_specifications):
-                    print(f"Skipping generation for {example['id']} {req['pred']} size {n} since only {len(all_specifications)} specifications are available.")
+def validation_error(content, mode):
+    """Return why the narrowing input path rejects content, or None."""
+
+    try:
+        collector = parse(content, trace_length=_trace_length(mode))
+    except AlloyParseError as error:
+        return str(error)
+    return _alloy5_error(collector.content)
+
+
+def specification_error(base, specification, mode):
+    """Validate one candidate in the same predicate shape written to a problem."""
+
+    candidate = f"{base}\npred __generate_candidate {{ {specification} }}"
+    return validation_error(candidate, mode)
+
+
+def generate_problems(dataset, sizes, model_ids, mode, output_dir=Path("problems")):
+    """Filter accepted models/specifications and write the requested problems."""
+
+    generated = []
+    selected = set(model_ids)
+    for example in (item for item in dataset if item["id"] in selected):
+        base_model = example["model"]
+        error = validation_error(base_model, mode)
+        if error is not None:
+            print(f"Skipped model {example['id']}: {error}")
+            continue
+
+        for requirement in example["requirements"]:
+            specifications = []
+            for specification in [requirement["oracle"], *requirement["erroneous"]]:
+                error = specification_error(base_model, specification, mode)
+                if error is None:
+                    specifications.append(specification)
+                else:
+                    print(
+                        "Discarded specification for "
+                        f"{example['id']} {requirement['pred']}: {error}"
+                    )
+
+            for size in sizes:
+                if size > len(specifications):
+                    print(
+                        f"Skipping generation for {example['id']} "
+                        f"{requirement['pred']} size {size} since only "
+                        f"{len(specifications)} specifications are available."
+                    )
                     continue
-                specifications = all_specifications[:n]
+
                 model = base_model
-                for i,spec in enumerate(specifications):
-                    model += f"\npred S{i} {{ {spec} }}\n"
-                if not os.path.exists('problems'):
-                    os.makedirs('problems')
-                with open(f'problems/{example["id"]}_{req["pred"][5:]}_{n}.als', 'w') as out:
-                    out.write(model)
+                for index, specification in enumerate(specifications[:size]):
+                    model += f"\npred S{index} {{ {specification} }}\n"
+
+                output_dir.mkdir(parents=True, exist_ok=True)
+                requirement_name = requirement["pred"][5:]
+                output = output_dir / (
+                    f"{example['id']}_{requirement_name}_{size}.als"
+                )
+                output.write_text(model)
+                generated.append(output)
+    return generated
+
+
+def main(argv=None):
+    args = argument_parser().parse_args(argv)
+    sizes = range(args.min_size, args.max_size + 1, args.step_size)
+    with open("dataset.json", "r") as file:
+        dataset = json.load(file)
+    generate_problems(dataset, sizes, args.models, args.mode)
+
+
+if __name__ == "__main__":
+    main()

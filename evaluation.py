@@ -29,6 +29,8 @@ from typing import Optional
 
 ALGORITHMS = ("balanced", "recursive", "exact", "enumerate")
 SCOPE_STUDY_ALGORITHMS = ("balanced", "recursive", "exact")
+TEMPORAL_STUDY_ALGORITHMS = ALGORITHMS
+TRACE_STUDY_ALGORITHMS = TEMPORAL_STUDY_ALGORITHMS
 METHOD_METADATA = {
     "balanced": {
         "display_name": "Balanced MaxSAT",
@@ -52,6 +54,14 @@ ALLOYMAX_VERSION = "1.0.2"
 DEFAULT_ONLINE_TIMEOUT_SECONDS = 180.0
 RESULT_PREFIX = "__SPEC_NARROWING_RESULT__"
 ONLINE_RESULT_PREFIX = "__SPEC_NARROWING_ONLINE_RESULT__"
+
+
+def _trace_length_argument(trace_length: Optional[int]) -> str:
+    return "none" if trace_length is None else str(trace_length)
+
+
+def _parse_trace_length_argument(value: str) -> Optional[int]:
+    return None if value == "none" else int(value)
 
 
 def method_metadata(algorithms):
@@ -95,7 +105,12 @@ def number_stats(values) -> Optional[dict[str, float]]:
     }
 
 
-def _worker_server(algorithm: str, filename: str, scope: int) -> int:
+def _worker_server(
+    algorithm: str,
+    filename: str,
+    scope: int,
+    trace_length: Optional[int],
+) -> int:
     """Serve newline-delimited synthesis requests on stdin/stdout."""
 
     from balanced import balanced_test_set
@@ -125,11 +140,11 @@ def _worker_server(algorithm: str, filename: str, scope: int) -> int:
                     strategy_arguments = (
                         content,
                         scope,
-                        None,
+                        trace_length,
                         algorithm_statistics,
                     )
                 else:
-                    strategy_arguments = (content, scope, None)
+                    strategy_arguments = (content, scope, trace_length)
                 instances = [
                     instance.alloy5 for instance in strategy(*strategy_arguments)
                 ]
@@ -151,13 +166,19 @@ def _worker_server(algorithm: str, filename: str, scope: int) -> int:
     return 0
 
 
-def _online_worker(filename: str, scope: int) -> int:
+def _online_worker(
+    filename: str,
+    scope: int,
+    trace_length: Optional[int],
+) -> int:
     """Measure all oracle paths for one always-online balanced tree."""
 
     from balanced import online_balanced_path_costs
 
     try:
-        result = online_balanced_path_costs(Path(filename).read_text(), scope)
+        result = online_balanced_path_costs(
+            Path(filename).read_text(), scope, trace_length
+        )
         result["status"] = "completed"
     except BaseException as error:
         result = {
@@ -168,7 +189,12 @@ def _online_worker(filename: str, scope: int) -> int:
     return 0
 
 
-def _run_online_problem(filename: Path, scope: int, timeout_seconds: float):
+def _run_online_problem(
+    filename: Path,
+    scope: int,
+    timeout_seconds: float,
+    trace_length: Optional[int] = None,
+):
     """Run one online comparison in an isolated, time-bounded process."""
 
     try:
@@ -179,6 +205,7 @@ def _run_online_problem(filename: Path, scope: int, timeout_seconds: float):
                 "_online_worker",
                 str(filename),
                 str(scope),
+                _trace_length_argument(trace_length),
             ],
             capture_output=True,
             text=True,
@@ -202,11 +229,19 @@ def _run_online_problem(filename: Path, scope: int, timeout_seconds: float):
 class SynthesisServer:
     """A restartable synthesis worker with a timeout for each request."""
 
-    def __init__(self, algorithm, filename, scope, timeout_seconds):
+    def __init__(
+        self,
+        algorithm,
+        filename,
+        scope,
+        timeout_seconds,
+        trace_length=None,
+    ):
         self.algorithm = algorithm
         self.filename = str(filename)
         self.scope = scope
         self.timeout_seconds = timeout_seconds
+        self.trace_length = trace_length
         self.process = None
 
     def start(self):
@@ -220,6 +255,7 @@ class SynthesisServer:
                 self.algorithm,
                 self.filename,
                 str(self.scope),
+                _trace_length_argument(self.trace_length),
             ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -337,15 +373,24 @@ def evaluate_batch(
     scope,
     timeout_seconds,
     predicate_holds,
+    trace_length=None,
 ):
     predicates = list(collector.predicates)
-    with SynthesisServer(algorithm, filename, scope, timeout_seconds) as server:
+    with SynthesisServer(
+        algorithm,
+        filename,
+        scope,
+        timeout_seconds,
+        trace_length,
+    ) as server:
         synthesis = server.request()
     result = {
         "algorithm": algorithm,
         "status": synthesis["status"],
         "synthesis_timeout_seconds": timeout_seconds,
     }
+    if collector.temporal:
+        result["trace_length"] = collector.trace_length
     if synthesis["status"] != "completed":
         result.update(
             {
@@ -414,9 +459,9 @@ def _problem_key(path: Path):
     return size, path.name
 
 
-def _problem_metadata(path: Path, predicates):
+def _problem_metadata(path: Path, predicates, collector=None):
     parts = path.stem.rsplit("_", 2)
-    return {
+    metadata = {
         "file": path.name,
         "model": parts[0] if len(parts) == 3 else None,
         "requirement": parts[1] if len(parts) == 3 else None,
@@ -424,6 +469,11 @@ def _problem_metadata(path: Path, predicates):
         "candidate_count": len(predicates),
         "candidates": list(predicates),
     }
+    if collector is not None:
+        metadata["temporal"] = collector.temporal
+        if collector.temporal:
+            metadata["trace_length"] = collector.trace_length
+    return metadata
 
 
 def _format_stats(stats):
@@ -591,16 +641,42 @@ def _scope_study_problem(main_problem):
             "declared_size",
             "candidate_count",
             "candidates",
+            "temporal",
+            "trace_length",
         )
         if key in main_problem
     } | {"scopes": {}}
+
+
+def _trace_study_problem(main_problem):
+    """Copy stable problem metadata for the temporal-depth study."""
+
+    return {
+        key: deepcopy(main_problem[key])
+        for key in (
+            "file",
+            "model",
+            "requirement",
+            "declared_size",
+            "candidate_count",
+            "candidates",
+            "temporal",
+            "trace_length",
+        )
+        if key in main_problem
+    } | {"trace_lengths": {}}
 
 
 def scope_study_summary(study):
     """Summarize the scope experiment, including its paired RQ2 subset."""
 
     scopes = [str(scope) for scope in study["configuration"]["scopes"]]
-    algorithm_keys = study["configuration"]["algorithms"]
+    algorithm_keys = list(
+        dict.fromkeys(
+            study["configuration"]["algorithms"]
+            + study["configuration"].get("temporal_algorithms", [])
+        )
+    )
     by_scope = {key: {} for key in algorithm_keys}
     for key in algorithm_keys:
         for scope in scopes:
@@ -681,6 +757,69 @@ def scope_study_summary(study):
     }
 
 
+def trace_study_summary(study):
+    """Summarize the independent temporal trace-length experiment."""
+
+    trace_lengths = [
+        str(trace_length)
+        for trace_length in study["configuration"]["trace_lengths"]
+    ]
+    algorithm_keys = study["configuration"]["algorithms"]
+    by_trace_length = {key: {} for key in algorithm_keys}
+    for key in algorithm_keys:
+        for trace_length in trace_lengths:
+            results = [
+                problem.get("trace_lengths", {}).get(trace_length, {}).get(key)
+                for problem in study.get("problems", [])
+            ]
+            results = [result for result in results if result is not None]
+            completed = [
+                result for result in results if result.get("status") == "completed"
+            ]
+            by_trace_length[key][trace_length] = {
+                "problems": len(results),
+                "completed_problems": len(completed),
+                "completed_oracles": sum(
+                    result.get("completed_oracles", 0) for result in results
+                ),
+                "total_oracles": sum(
+                    result.get("total_oracles", 0) for result in results
+                ),
+                "test_suite_size_stats": number_stats(
+                    result.get("test_suite_size") for result in completed
+                ),
+                "classification_stats": number_stats(
+                    classification
+                    for result in completed
+                    for classification in result.get("classifications", {}).values()
+                    if classification is not None
+                ),
+                "synthesis_seconds_stats": number_stats(
+                    result.get("synthesis_seconds") for result in completed
+                ),
+            }
+
+    paired_problems = [
+        problem
+        for problem in study.get("problems", [])
+        if all(
+            problem.get("trace_lengths", {})
+            .get(trace_length, {})
+            .get("exact", {})
+            .get("status")
+            == "completed"
+            for trace_length in trace_lengths
+        )
+    ]
+    return {
+        "by_trace_length": by_trace_length,
+        "paired_exact_completed_all_trace_lengths": {
+            "problem_count": len(paired_problems),
+            "files": [problem["file"] for problem in paired_problems],
+        },
+    }
+
+
 def online_comparison_summary(document):
     """Summarize paired batch and always-online balanced synthesis costs."""
 
@@ -753,12 +892,31 @@ def online_comparison_summary(document):
     }
 
 
-def ensure_online_comparison(document, timeout_seconds):
+def _normalize_study_trace_length(configuration, trace_length, label):
+    """Add a trace bound to legacy study metadata or verify an existing one."""
+
+    if "temporal_trace_length" not in configuration:
+        configuration["temporal_trace_length"] = trace_length
+        return True
+    existing = configuration["temporal_trace_length"]
+    if existing is not None and existing != trace_length:
+        raise ValueError(
+            f"cannot resume: existing {label} temporal trace length "
+            "does not match --trace-length"
+        )
+    if existing is None and trace_length is not None:
+        configuration["temporal_trace_length"] = trace_length
+        return True
+    return False
+
+
+def ensure_online_comparison(document, timeout_seconds, trace_length=None):
     """Initialize and normalize the paired always-online balanced study."""
 
     expected = {
         "method": "balanced",
         "scope": document["configuration"]["scope"],
+        "temporal_trace_length": trace_length,
         "synthesis_timeout_seconds": timeout_seconds,
         "eligible_batch_status": "completed",
         "aggregation": "mean oracle-path cost per configuration",
@@ -774,6 +932,9 @@ def ensure_online_comparison(document, timeout_seconds):
         changed = True
     else:
         configuration = study.setdefault("configuration", {})
+        changed |= _normalize_study_trace_length(
+            configuration, trace_length, "online-comparison"
+        )
         old_timeout = configuration.pop("timeout_seconds", None)
         if old_timeout is not None:
             changed = True
@@ -808,17 +969,27 @@ def ensure_scope_study(
     candidate_count,
     scopes,
     timeout_seconds,
+    trace_length=None,
+    temporal_candidate_count=None,
 ):
     """Initialize the RQ2 scope study and reuse matching main-study results."""
 
     scopes = sorted(set(scopes))
+    if temporal_candidate_count is None:
+        temporal_candidate_count = candidate_count
     algorithms = list(SCOPE_STUDY_ALGORITHMS)
+    temporal_algorithms = list(TEMPORAL_STUDY_ALGORITHMS)
+    main_scope = document.get("configuration", {}).get("scope")
     expected = {
         "candidate_count": candidate_count,
+        "temporal_candidate_count": temporal_candidate_count,
         "scopes": scopes,
         "algorithms": algorithms,
         "method_metadata": method_metadata(algorithms),
+        "temporal_algorithms": temporal_algorithms,
+        "temporal_method_metadata": method_metadata(temporal_algorithms),
         "synthesis_timeout_seconds": timeout_seconds,
+        "temporal_trace_length": trace_length,
         "alloymax_version": ALLOYMAX_VERSION,
     }
     changed = False
@@ -832,25 +1003,79 @@ def ensure_scope_study(
         changed = True
     else:
         study_configuration = study.setdefault("configuration", {})
+        changed |= _normalize_study_trace_length(
+            study_configuration, trace_length, "scope-study"
+        )
+        old_trace_lengths = study_configuration.pop(
+            "temporal_trace_lengths_by_scope", None
+        )
+        if old_trace_lengths is not None:
+            has_diagonal_temporal_results = any(
+                problem.get("temporal")
+                and any(
+                    int(scope) != main_scope
+                    and results
+                    and any(
+                        result.get("trace_length", trace_length) != trace_length
+                        for result in results.values()
+                    )
+                    for scope, results in problem.get("scopes", {}).items()
+                )
+                for problem in study.get("problems", [])
+            )
+            if has_diagonal_temporal_results:
+                raise ValueError(
+                    "cannot resume: existing scope-study results used an "
+                    "increasing trace length; remove scope_study from the "
+                    "output or start a new output file"
+                )
+            changed = True
+        if "temporal_candidate_count" not in study_configuration:
+            has_temporal_results = any(
+                problem.get("temporal")
+                and any(problem.get("scopes", {}).values())
+                for problem in study.get("problems", [])
+            )
+            if has_temporal_results and temporal_candidate_count != candidate_count:
+                raise ValueError(
+                    "cannot resume: existing temporal scope-study results use "
+                    "the old shared candidate count"
+                )
+            study_configuration["temporal_candidate_count"] = (
+                temporal_candidate_count
+            )
+            changed = True
         if "alloymax_version" not in study_configuration:
             study_configuration["alloymax_version"] = ALLOYMAX_VERSION
             changed = True
         if "method_metadata" not in study_configuration:
             study_configuration["method_metadata"] = method_metadata(algorithms)
             changed = True
+        if "temporal_algorithms" not in study_configuration:
+            study_configuration["temporal_algorithms"] = temporal_algorithms
+            changed = True
+        if "temporal_method_metadata" not in study_configuration:
+            study_configuration["temporal_method_metadata"] = method_metadata(
+                temporal_algorithms
+            )
+            changed = True
         if study_configuration != expected:
             raise ValueError(
                 "cannot resume: existing scope-study configuration does not "
-                "match the requested candidate count, scopes, algorithms, "
-                "timeout, or AlloyMax version"
+                "match the requested static/temporal candidate counts, scopes, algorithms, "
+                "timeout, temporal trace length, or AlloyMax version"
             )
 
     study_by_file = {
         problem["file"]: problem for problem in study.get("problems", [])
     }
-    main_scope = document.get("configuration", {}).get("scope")
     for main_problem in document.get("problems", []):
-        if main_problem.get("candidate_count") != candidate_count:
+        expected_candidate_count = (
+            temporal_candidate_count
+            if main_problem.get("temporal")
+            else candidate_count
+        )
+        if main_problem.get("candidate_count") != expected_candidate_count:
             continue
         problem = study_by_file.get(main_problem["file"])
         if problem is None:
@@ -861,7 +1086,10 @@ def ensure_scope_study(
         if main_scope not in scopes:
             continue
         scope_results = problem["scopes"].setdefault(str(main_scope), {})
-        for key in algorithms:
+        problem_algorithms = (
+            temporal_algorithms if main_problem.get("temporal") else algorithms
+        )
+        for key in problem_algorithms:
             main_result = main_problem.get("algorithms", {}).get(key)
             if main_result is not None and key not in scope_results:
                 scope_results[key] = deepcopy(main_result)
@@ -877,12 +1105,109 @@ def ensure_scope_study(
     return changed
 
 
+def ensure_trace_study(
+    document,
+    candidate_count,
+    trace_lengths,
+    timeout_seconds,
+    base_trace_length,
+):
+    """Initialize the fixed-scope temporal-depth study and reuse base results."""
+
+    trace_lengths = sorted(set(trace_lengths))
+    algorithms = list(TRACE_STUDY_ALGORITHMS)
+    fixed_scope = document["configuration"]["scope"]
+    expected = {
+        "candidate_count": candidate_count,
+        "fixed_scope": fixed_scope,
+        "trace_lengths": trace_lengths,
+        "algorithms": algorithms,
+        "method_metadata": method_metadata(algorithms),
+        "synthesis_timeout_seconds": timeout_seconds,
+        "alloymax_version": ALLOYMAX_VERSION,
+    }
+    changed = False
+    study = document.get("trace_study")
+    if study is None:
+        study = {"configuration": expected, "problems": []}
+        document["trace_study"] = study
+        changed = True
+    else:
+        configuration = study.setdefault("configuration", {})
+        existing_algorithms = configuration.get("algorithms", [])
+        comparable_existing = {
+            key: value
+            for key, value in configuration.items()
+            if key not in {"algorithms", "method_metadata"}
+        }
+        comparable_expected = {
+            key: value
+            for key, value in expected.items()
+            if key not in {"algorithms", "method_metadata"}
+        }
+        if (
+            comparable_existing != comparable_expected
+            or not set(existing_algorithms).issubset(algorithms)
+        ):
+            raise ValueError(
+                "cannot resume: existing trace-study configuration does not "
+                "match the requested candidate count, fixed scope, trace "
+                "range, timeout, or AlloyMax version"
+            )
+        if existing_algorithms != algorithms:
+            configuration["algorithms"] = algorithms
+            changed = True
+        expected_metadata = method_metadata(algorithms)
+        if configuration.get("method_metadata") != expected_metadata:
+            configuration["method_metadata"] = expected_metadata
+            changed = True
+
+    study_by_file = {
+        problem["file"]: problem for problem in study.get("problems", [])
+    }
+    for main_problem in document.get("problems", []):
+        if (
+            not main_problem.get("temporal")
+            or main_problem.get("candidate_count") != candidate_count
+        ):
+            continue
+        problem = study_by_file.get(main_problem["file"])
+        if problem is None:
+            problem = _trace_study_problem(main_problem)
+            study["problems"].append(problem)
+            study_by_file[main_problem["file"]] = problem
+            changed = True
+        if base_trace_length not in trace_lengths:
+            continue
+        base_results = problem["trace_lengths"].setdefault(
+            str(base_trace_length), {}
+        )
+        for key in algorithms:
+            main_result = main_problem.get("algorithms", {}).get(key)
+            if main_result is not None and key not in base_results:
+                base_results[key] = deepcopy(main_result)
+                changed = True
+
+    summary = trace_study_summary(study)
+    if study.get("summary") != summary:
+        study["summary"] = summary
+        changed = True
+    return changed
+
+
 def save_results(output: Path, document):
     document["updated_at"] = datetime.now(timezone.utc).isoformat()
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     temporary.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n")
     os.replace(temporary, output)
+
+
+def _positive_int(value):
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return parsed
 
 
 def argument_parser():
@@ -895,7 +1220,23 @@ def argument_parser():
     )
     parser.add_argument("--problems", type=Path, default=Path("problems"))
     parser.add_argument("--output", type=Path, default=Path("evaluation-results.json"))
+    parser.add_argument(
+        "--paper-report",
+        action="store_true",
+        help=(
+            "read --output and print the tables and supporting statistics "
+            "reported in the paper without running or modifying an evaluation"
+        ),
+    )
     parser.add_argument("--scope", type=int, default=3)
+    parser.add_argument(
+        "--trace-length",
+        type=_positive_int,
+        help=(
+            "maximum number of states for temporal Alloy models; required "
+            "when selected problems use temporal syntax"
+        ),
+    )
     parser.add_argument(
         "--timeout",
         type=float,
@@ -911,10 +1252,10 @@ def argument_parser():
     parser.add_argument(
         "--study",
         choices=("all", "main", "scope", "online"),
-        default="all",
+        default="main",
         help=(
             "run every study, or only the main, scope, or online comparison "
-            "(default: all)"
+            "(default: main)"
         ),
     )
     parser.add_argument(
@@ -926,9 +1267,31 @@ def argument_parser():
             f"(default: {DEFAULT_ONLINE_TIMEOUT_SECONDS:g} seconds)"
         ),
     )
-    parser.add_argument("--scope-study-size", type=int, default=16)
+    parser.add_argument(
+        "--scope-study-size",
+        type=int,
+        help="candidate count for static scope studies (default: 16)",
+    )
+    parser.add_argument(
+        "--temporal-study-size",
+        type=int,
+        help=(
+            "candidate count for temporal scope and trace-length studies "
+            "(default: --scope-study-size)"
+        ),
+    )
     parser.add_argument("--scope-study-min", type=int, default=3)
     parser.add_argument("--scope-study-max", type=int, default=7)
+    parser.add_argument(
+        "--trace-study-min",
+        type=_positive_int,
+        help="minimum trace length in the temporal-depth study",
+    )
+    parser.add_argument(
+        "--trace-study-max",
+        type=_positive_int,
+        help="maximum trace length in the temporal-depth study",
+    )
     output_mode = parser.add_mutually_exclusive_group()
     output_mode.add_argument(
         "--resume",
@@ -955,13 +1318,88 @@ def _main_paths(args):
 
 
 def _scope_study_paths(args):
+    from alloy import requires_trace_length
+
     paths = sorted(args.problems.glob("*.als"), key=_problem_key)
     paths = [
-        path for path in paths if _problem_key(path)[0] == args.scope_study_size
+        path
+        for path in paths
+        if _problem_key(path)[0]
+        == (
+            args.temporal_study_size
+            if requires_trace_length(path.read_text())
+            else args.scope_study_size
+        )
     ]
     if args.limit is not None:
         paths = paths[: args.limit]
     return paths
+
+
+def _trace_study_paths(args):
+    from alloy import requires_trace_length
+
+    return [
+        path
+        for path in _scope_study_paths(args)
+        if requires_trace_length(path.read_text())
+    ]
+
+
+def _configure_study_arguments(args):
+    if args.scope_study_size is None:
+        args.scope_study_size = 16
+    if args.scope_study_size < 1:
+        raise SystemExit("--scope-study-size must be at least 1")
+    if args.temporal_study_size is None:
+        args.temporal_study_size = args.scope_study_size
+    if args.temporal_study_size < 1:
+        raise SystemExit("--temporal-study-size must be at least 1")
+    if args.trace_length is None:
+        if args.trace_study_min is not None or args.trace_study_max is not None:
+            raise SystemExit("--trace-study-min/max require --trace-length")
+        args.trace_study_min = None
+        args.trace_study_max = None
+        return
+    if args.trace_study_min is None:
+        args.trace_study_min = args.trace_length
+    if args.trace_study_max is None:
+        args.trace_study_max = args.trace_length + (
+            args.scope_study_max - args.scope_study_min
+        )
+    if args.trace_study_min > args.trace_study_max:
+        raise SystemExit("--trace-study-min cannot exceed --trace-study-max")
+
+
+def _trace_study_values(args):
+    if args.trace_study_min is None:
+        return []
+    return range(args.trace_study_min, args.trace_study_max + 1)
+
+
+def _selected_paths(args):
+    paths = []
+    if args.study in {"all", "main", "online"}:
+        paths.extend(_main_paths(args))
+    if args.study in {"all", "scope"}:
+        paths.extend(_scope_study_paths(args))
+    return list(dict.fromkeys(paths))
+
+
+def _validate_temporal_trace_length(args, requires_trace_length):
+    if args.trace_length is not None:
+        return
+    temporal_paths = [
+        path
+        for path in _selected_paths(args)
+        if requires_trace_length(path.read_text())
+    ]
+    if temporal_paths:
+        example = temporal_paths[0]
+        raise SystemExit(
+            "--trace-length is required because the selected problems include "
+            f"temporal Alloy syntax (for example, {example})"
+        )
 
 
 def _new_document(args):
@@ -975,6 +1413,7 @@ def _new_document(args):
             "algorithms": list(ALGORITHMS),
             "method_metadata": method_metadata(ALGORITHMS),
             "alloymax_version": ALLOYMAX_VERSION,
+            "temporal_trace_length": args.trace_length,
         },
         "problems": [],
     }
@@ -994,11 +1433,52 @@ def _load_document(args):
             raise SystemExit("cannot resume: output scope does not match --scope")
         if configuration.get("synthesis_timeout_seconds") != args.timeout:
             raise SystemExit("cannot resume: output timeout does not match --timeout")
+        configured_trace_length = configuration.get("temporal_trace_length")
+        if configured_trace_length is not None:
+            if (
+                args.trace_length is not None
+                and args.trace_length != configured_trace_length
+            ):
+                raise SystemExit(
+                    "cannot resume: output temporal trace length does not "
+                    "match --trace-length"
+                )
+            args.trace_length = configured_trace_length
+        elif args.trace_length is not None:
+            configuration["temporal_trace_length"] = args.trace_length
+            changed = True
+        elif "temporal_trace_length" not in configuration:
+            configuration["temporal_trace_length"] = None
+            changed = True
+        scope_configuration = document.get("scope_study", {}).get(
+            "configuration", {}
+        )
+        if args.scope_study_size is None:
+            args.scope_study_size = scope_configuration.get("candidate_count")
+        if args.temporal_study_size is None:
+            args.temporal_study_size = scope_configuration.get(
+                "temporal_candidate_count"
+            )
+        trace_configuration = document.get("trace_study", {}).get(
+            "configuration", {}
+        )
+        configured_trace_lengths = trace_configuration.get("trace_lengths", [])
+        if configured_trace_lengths:
+            if args.trace_study_min is None:
+                args.trace_study_min = min(configured_trace_lengths)
+            if args.trace_study_max is None:
+                args.trace_study_max = max(configured_trace_lengths)
         if not args.resume:
             print(f"Resuming existing results in {args.output}.", flush=True)
     else:
         document = _new_document(args)
         changed = True
+
+    # A resumed output may have supplied the trace length omitted on the CLI.
+    _configure_study_arguments(args)
+    from alloy import requires_trace_length
+
+    _validate_temporal_trace_length(args, requires_trace_length)
 
     if args.study in {"all", "scope"}:
         scopes = range(args.scope_study_min, args.scope_study_max + 1)
@@ -1008,12 +1488,28 @@ def _load_document(args):
                 args.scope_study_size,
                 scopes,
                 args.timeout,
+                args.trace_length,
+                args.temporal_study_size,
             )
         except ValueError as error:
             raise SystemExit(str(error)) from error
+        trace_study_values = list(_trace_study_values(args))
+        if trace_study_values:
+            try:
+                changed |= ensure_trace_study(
+                    document,
+                    args.temporal_study_size,
+                    trace_study_values,
+                    args.timeout,
+                    args.trace_length,
+                )
+            except ValueError as error:
+                raise SystemExit(str(error)) from error
     if args.study in {"all", "online"}:
         try:
-            changed |= ensure_online_comparison(document, args.online_timeout)
+            changed |= ensure_online_comparison(
+                document, args.online_timeout, args.trace_length
+            )
         except ValueError as error:
             raise SystemExit(str(error)) from error
 
@@ -1057,11 +1553,11 @@ def run_main_study(args, document, parse, predicate_holds):
     )
     for index, path in enumerate(pending, 1):
         problem_start = timer()
-        collector = parse(path.read_text())
+        collector = parse(path.read_text(), trace_length=args.trace_length)
         predicates = list(collector.predicates)
         problem = existing_by_file.get(path.name)
         if problem is None:
-            problem = _problem_metadata(path, predicates)
+            problem = _problem_metadata(path, predicates, collector)
             problem["algorithms"] = {}
             document["problems"].append(problem)
             existing_by_file[path.name] = problem
@@ -1084,6 +1580,7 @@ def run_main_study(args, document, parse, predicate_holds):
                     args.scope,
                     args.timeout,
                     predicate_holds,
+                    args.trace_length,
                 )
             except Exception as error:
                 result = _failed_result(
@@ -1103,11 +1600,15 @@ def run_main_study(args, document, parse, predicate_holds):
 
 
 def run_scope_study(args, document, parse, predicate_holds):
+    from alloy import requires_trace_length
+
     ensure_scope_study(
         document,
         args.scope_study_size,
         range(args.scope_study_min, args.scope_study_max + 1),
         args.timeout,
+        args.trace_length,
+        args.temporal_study_size,
     )
     study = document["scope_study"]
     study_by_file = {
@@ -1115,42 +1616,56 @@ def run_scope_study(args, document, parse, predicate_holds):
     }
     paths = _scope_study_paths(args)
     scopes = study["configuration"]["scopes"]
-    required_keys = set(study["configuration"]["algorithms"])
+    static_algorithms = study["configuration"]["algorithms"]
+    temporal_algorithms = study["configuration"]["temporal_algorithms"]
+
+    def required_algorithms(path):
+        return (
+            temporal_algorithms
+            if requires_trace_length(path.read_text())
+            else static_algorithms
+        )
+
     pending_tasks = [
         (path, scope)
         for path in paths
         for scope in scopes
         if path.name not in study_by_file
-        or not required_keys.issubset(
+        or not set(required_algorithms(path)).issubset(
             study_by_file[path.name]
             .get("scopes", {})
             .get(str(scope), {})
         )
     ]
     print(
-        f"RQ2 scope study for n={args.scope_study_size}, scopes "
+        f"RQ2 scope study for static n={args.scope_study_size}, temporal "
+        f"n={args.temporal_study_size}, scopes "
         f"{scopes[0]}--{scopes[-1]}: {len(pending_tasks)} problem/scope "
-        f"combinations pending; scope-{args.scope} main results are reused.",
+        f"combinations pending; scope-{args.scope} main results are reused. "
+        f"Temporal trace length is fixed at {args.trace_length}.",
         flush=True,
     )
     for index, (path, scope) in enumerate(pending_tasks, 1):
         task_start = timer()
-        collector = parse(path.read_text())
+        collector = parse(path.read_text(), trace_length=args.trace_length)
         predicates = list(collector.predicates)
         problem = study_by_file.get(path.name)
         if problem is None:
-            metadata = _problem_metadata(path, predicates)
+            metadata = _problem_metadata(path, predicates, collector)
             problem = _scope_study_problem(metadata)
             study["problems"].append(problem)
             study_by_file[path.name] = problem
         scope_results = problem["scopes"].setdefault(str(scope), {})
+        required_keys = (
+            temporal_algorithms if collector.temporal else static_algorithms
+        )
         missing = [key for key in required_keys if key not in scope_results]
         print(
             f"[scope {index}/{len(pending_tasks)}] {path.name}, scope {scope} "
             f"({len(missing)} methods pending)",
             flush=True,
         )
-        for algorithm in SCOPE_STUDY_ALGORITHMS:
+        for algorithm in required_keys:
             if algorithm in scope_results:
                 continue
             try:
@@ -1161,11 +1676,14 @@ def run_scope_study(args, document, parse, predicate_holds):
                     scope,
                     args.timeout,
                     predicate_holds,
+                    args.trace_length,
                 )
             except Exception as error:
                 result = _failed_result(
                     algorithm, predicates, error, args.timeout
                 )
+                if collector.temporal:
+                    result["trace_length"] = collector.trace_length
             scope_results[algorithm] = result
             print_algorithm_result(algorithm, result)
         study["summary"] = scope_study_summary(study)
@@ -1177,10 +1695,128 @@ def run_scope_study(args, document, parse, predicate_holds):
         )
 
 
+def run_trace_study(args, document, parse, predicate_holds):
+    """Vary temporal trace length while holding structural scope fixed."""
+
+    trace_lengths = list(_trace_study_values(args))
+    ensure_trace_study(
+        document,
+        args.temporal_study_size,
+        trace_lengths,
+        args.timeout,
+        args.trace_length,
+    )
+    study = document["trace_study"]
+    study_by_file = {
+        problem["file"]: problem for problem in study.get("problems", [])
+    }
+    reused_base_result = False
+
+    # If the main study was not run, reuse the base point just computed by the
+    # structural scope sweep instead of synthesizing (scope, trace) twice.
+    if args.trace_length in trace_lengths:
+        for scope_problem in document.get("scope_study", {}).get("problems", []):
+            if (
+                not scope_problem.get("temporal")
+                or scope_problem.get("candidate_count")
+                != args.temporal_study_size
+            ):
+                continue
+            source = scope_problem.get("scopes", {}).get(str(args.scope), {})
+            if not source:
+                continue
+            problem = study_by_file.get(scope_problem["file"])
+            if problem is None:
+                problem = _trace_study_problem(scope_problem)
+                study["problems"].append(problem)
+                study_by_file[scope_problem["file"]] = problem
+                reused_base_result = True
+            target = problem["trace_lengths"].setdefault(
+                str(args.trace_length), {}
+            )
+            for algorithm in TRACE_STUDY_ALGORITHMS:
+                if algorithm in source and algorithm not in target:
+                    target[algorithm] = deepcopy(source[algorithm])
+                    reused_base_result = True
+
+    if reused_base_result:
+        study["summary"] = trace_study_summary(study)
+        save_results(args.output, document)
+
+    paths = _trace_study_paths(args)
+    required_keys = set(study["configuration"]["algorithms"])
+    pending_tasks = [
+        (path, trace_length)
+        for path in paths
+        for trace_length in trace_lengths
+        if path.name not in study_by_file
+        or not required_keys.issubset(
+            study_by_file[path.name]
+            .get("trace_lengths", {})
+            .get(str(trace_length), {})
+        )
+    ]
+    print(
+        f"Temporal-depth study for n={args.temporal_study_size}, trace lengths "
+        f"{trace_lengths[0]}--{trace_lengths[-1]}: {len(pending_tasks)} "
+        f"problem/trace combinations pending; structural scope is fixed at "
+        f"{args.scope}.",
+        flush=True,
+    )
+    for index, (path, trace_length) in enumerate(pending_tasks, 1):
+        task_start = timer()
+        collector = parse(path.read_text(), trace_length=trace_length)
+        predicates = list(collector.predicates)
+        problem = study_by_file.get(path.name)
+        if problem is None:
+            metadata = _problem_metadata(path, predicates, collector)
+            problem = _trace_study_problem(metadata)
+            study["problems"].append(problem)
+            study_by_file[path.name] = problem
+        trace_results = problem["trace_lengths"].setdefault(
+            str(trace_length), {}
+        )
+        missing = [key for key in required_keys if key not in trace_results]
+        print(
+            f"[trace {index}/{len(pending_tasks)}] {path.name}, trace length "
+            f"{trace_length} ({len(missing)} methods pending)",
+            flush=True,
+        )
+        for algorithm in TRACE_STUDY_ALGORITHMS:
+            if algorithm in trace_results:
+                continue
+            try:
+                result = evaluate_batch(
+                    collector,
+                    path,
+                    algorithm,
+                    args.scope,
+                    args.timeout,
+                    predicate_holds,
+                    trace_length,
+                )
+            except Exception as error:
+                result = _failed_result(
+                    algorithm, predicates, error, args.timeout
+                )
+                result["trace_length"] = trace_length
+            trace_results[algorithm] = result
+            print_algorithm_result(algorithm, result)
+        study["summary"] = trace_study_summary(study)
+        save_results(args.output, document)
+        print(
+            f"  finished in {timer() - task_start:.2f} seconds; "
+            f"saved {args.output}",
+            flush=True,
+        )
+
+
 def run_online_study(args, document):
     """Evaluate online balanced path costs for batch-completed configurations."""
 
-    ensure_online_comparison(document, args.online_timeout)
+    ensure_online_comparison(
+        document, args.online_timeout, args.trace_length
+    )
     study = document["online_comparison"]
     selected_paths = {path.name: path for path in _main_paths(args)}
     eligible = [
@@ -1207,6 +1843,7 @@ def run_online_study(args, document):
             selected_paths[problem["file"]],
             document["configuration"]["scope"],
             args.online_timeout,
+            args.trace_length,
         )
         result["file"] = problem["file"]
         result["candidate_count"] = problem["candidate_count"]
@@ -1297,6 +1934,28 @@ def print_scope_summary(document):
     )
 
 
+def print_trace_summary(document):
+    study = document.get("trace_study")
+    if not study:
+        return
+    print("\nTemporal trace-length-study summary", flush=True)
+    for key, trace_lengths in study.get("summary", {}).get(
+        "by_trace_length", {}
+    ).items():
+        print(key, flush=True)
+        for trace_length in sorted(trace_lengths, key=int):
+            row = trace_lengths[trace_length]
+            suite_stats = row.get("test_suite_size_stats")
+            suite = "NA" if suite_stats is None else f"{suite_stats['mean']:.2f}"
+            print(
+                f"  trace={trace_length}: "
+                f"{row['completed_problems']}/{row['problems']} problems; "
+                f"suite mean {suite}; classifications "
+                f"{_format_stats(row.get('classification_stats'))}",
+                flush=True,
+            )
+
+
 def print_online_summary(document):
     study = document.get("online_comparison")
     if not study:
@@ -1320,6 +1979,19 @@ def print_online_summary(document):
 
 def main(argv=None):
     args = argument_parser().parse_args(argv)
+    if args.paper_report:
+        if not args.output.exists():
+            raise SystemExit(f"cannot generate paper report: {args.output} not found")
+        try:
+            document = json.loads(args.output.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            raise SystemExit(
+                f"cannot generate paper report from {args.output}: {error}"
+            ) from error
+        from evaluation_report import print_paper_report
+
+        print_paper_report(document, source=args.output)
+        return 0
     if args.scope_study_min > args.scope_study_max:
         raise SystemExit("--scope-study-min cannot exceed --scope-study-max")
     document = _load_document(args)
@@ -1338,9 +2010,21 @@ def main(argv=None):
                 args.scope_study_size,
                 range(args.scope_study_min, args.scope_study_max + 1),
                 args.timeout,
+                args.trace_length,
+                args.temporal_study_size,
             ):
                 save_results(args.output, document)
             run_scope_study(args, document, parse, predicate_holds)
+            if args.trace_length is not None:
+                if ensure_trace_study(
+                    document,
+                    args.temporal_study_size,
+                    _trace_study_values(args),
+                    args.timeout,
+                    args.trace_length,
+                ):
+                    save_results(args.output, document)
+                run_trace_study(args, document, parse, predicate_holds)
         if args.study in {"all", "online"}:
             run_online_study(args, document)
     except KeyboardInterrupt:
@@ -1351,6 +2035,7 @@ def main(argv=None):
         print_main_summary(document)
     if args.study in {"all", "scope"}:
         print_scope_summary(document)
+        print_trace_summary(document)
     if args.study in {"all", "online"}:
         print_online_summary(document)
     return 0
@@ -1359,8 +2044,19 @@ def main(argv=None):
 if __name__ == "__main__":
     if len(sys.argv) >= 2 and sys.argv[1] == "_worker":
         raise SystemExit(
-            _worker_server(sys.argv[2], sys.argv[3], int(sys.argv[4]))
+            _worker_server(
+                sys.argv[2],
+                sys.argv[3],
+                int(sys.argv[4]),
+                _parse_trace_length_argument(sys.argv[5]),
+            )
         )
-    if len(sys.argv) == 4 and sys.argv[1] == "_online_worker":
-        raise SystemExit(_online_worker(sys.argv[2], int(sys.argv[3])))
+    if len(sys.argv) == 5 and sys.argv[1] == "_online_worker":
+        raise SystemExit(
+            _online_worker(
+                sys.argv[2],
+                int(sys.argv[3]),
+                _parse_trace_length_argument(sys.argv[4]),
+            )
+        )
     raise SystemExit(main())

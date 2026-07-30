@@ -4,8 +4,8 @@
 - [`generate.py`](./generate.py): script for the generation of the benchmark Alloy models from the dataset.
 - [`problems`](./problems): pre-generated benchmark of Alloy models.
 - [`evaluation.py`](./evaluation.py): script for evaluating the four batch-construction methods over the benchmarks.
-- [`alloy.py`](./alloy.py): script to process Alloy 5 models.
-- [`narrow.py`](./narrow.py): unified command-line interface for distinguishing-batch construction
+- [`alloy.py`](./alloy.py): structure-aware Alloy parser and bounded Alloy 6-to-5 temporal translator.
+- [`narrow.py`](./narrow.py): unified command-line interface for distinguishing-batch construction.
 - [`evaluation-results.json`](./evaluation-results.json): consolidated,
   resumable evaluation data and summaries.
 - [`AlloyMax-1.0.2.jar`](./AlloyMax-1.0.2.jar): snapshot of AlloyMax, used to parse and execute Alloy models and commands.
@@ -25,17 +25,20 @@ methods minimize the set of tests that separates every candidate pair.
 | `enumerate` | Separation-pattern enumeration | cover-based | minimum cardinality |
 
 The authoritative measurements and generated summaries are stored in
-[`evaluation-results.json`](./evaluation-results.json). At scope 3, Balanced,
-Recursive, Exact, and Enumeration complete 176, 196, 163, and 152 of the 196
-configurations, respectively. On the 151 configurations jointly completed by
-Balanced, Recursive, and Exact, their mean batch sizes are 7.36, 8.09, and 5.17
-tests. The paper reports the paired classification, cardinality, synthesis-time,
-scope, and always-online analyses derived from this file.
+[`evaluation-results.json`](./evaluation-results.json). At structural scope 3,
+Balanced, Recursive, Exact, and Enumeration complete 176, 196, 163, and 152 of
+the 196 static configurations, and 30, 32, 9, and 31 of the 32 temporal
+configurations, respectively. On the 151 static configurations jointly
+completed by Balanced, Recursive, and Exact, their mean batch sizes are 7.36,
+8.09, and 5.17 tests. The paper reports the paired classification,
+cardinality, synthesis-time, scope, trace-length, and always-online analyses
+derived from this file.
 
 The JSON records the same method IDs together with a display name and family.
-Every result uses `synthesis_timeout_seconds` for the total batch-synthesis
-budget; post-synthesis truth-table evaluation and classification simulation are
-timed separately.
+Batch entries record `synthesis_timeout_seconds` as the total batch-synthesis
+budget, while the online-study configuration records its separate traversal
+safety timeout. Post-synthesis truth-table evaluation and classification
+simulation are timed separately.
 
 # Scripts
 
@@ -47,51 +50,90 @@ pip install -r requirements.txt
 
 ## Data preparation
 
-Script `generate.py`, for each pair model/requirements in `dataset.json`, creates an Alloy model with alternative requirement specifications as predicates. The specifications in `dataset.json` are from a [dataset](https://zenodo.org/records/17392203) that guarantees that the alternatives are non-equivalent, as required by all four methods. Exact MaxSAT relies on AlloyMax, which accepts Alloy 5 input; although the requirements in `dataset.json` are static, temporal Alloy 6 features occasionally occur in student submissions. Those submissions are filtered out by `generate.py`.
+Script `generate.py`, for each pair model/requirements in `dataset.json`, creates an Alloy model with alternative requirement specifications as predicates. The specifications in `dataset.json` are from a [dataset](https://zenodo.org/records/17392203) that guarantees that the alternatives are non-equivalent, as required by all four methods. Models and specifications are filtered with the same parser and bounded Alloy 6-to-5 translation used by `narrow.py`; the translated Alloy 5 is then parsed and typechecked by AlloyMax, as it is during narrowing.
 
-The script takes as argument a range of sizes for the set of alternative specifications. If a certain requirement does not have the required number of specifications, it is skipped.
+The script takes as arguments a range of sizes for the set of alternative specifications and the model IDs to process. `--mode static` (the default) accepts only static inputs. `--mode temporal` uses an internal positive trace bound for validation and accepts the bounded temporal subset supported by `narrow.py`; that validation bound is not embedded in the generated problem. Unsupported base models are skipped once; unsupported candidate specifications are discarded individually. If a requirement does not retain the requested number of specifications, it is skipped.
 
 ### Usage
 
 Run the script as:
 
 ```
-Usage: python generate.py <min_size> <max_size> <step_size> <models>
+python3 generate.py [--mode {static,temporal}] <min_size> <max_size> <step_size> <models> [<models> ...]
 ```
 
 ### Results
 
-The script was run for models Social Network (`x3JXgWhJ3uti5Dzxz`), Production line (`dyj49tEp7j6aWAQQX`) and Train Station (`cXPP9QBPTYgTX6WJ6`), ranging from 4 to 28 specifications, with step of 4 (the minimal number of specifications among all requirements in `dataset.json` is 29). The pre-generated models are available in [problems](./problems).
+The script was run for the static Social Network (`x3JXgWhJ3uti5Dzxz`),
+Production Line (`dyj49tEp7j6aWAQQX`), and Train Station
+(`cXPP9QBPTYgTX6WJ6`) models, ranging from 4 to 28 specifications in steps of
+4. Each of the 28 selected static requirements has at least 29 source
+specifications. The pre-generated models are available in
+[`problems`](./problems).
 
 ```
 python3 generate.py 4 28 4 x3JXgWhJ3uti5Dzxz dyj49tEp7j6aWAQQX cXPP9QBPTYgTX6WJ6
 ```
 
-## Experiment execution
-
-`evaluation.py` runs all experiments used by the paper. The main study compares
-balanced, recursive, exact, and enumeration-based batch construction on every static
-model in `problems` at scope 3. The scope study runs balanced, recursive, and
-exact construction on the 28 configurations with 16 candidates at scopes
-3 through 7. The online comparison measures every balanced oracle path on the
-176 configurations completed by balanced batch construction. Batch methods
-receive the same 60-second budget for synthesizing one complete batch; the
-online tree traversal uses a 180-second safety timeout. Every candidate
-specification is used as the oracle:
+For a temporal model, use:
 
 ```
-python3 evaluation.py
+python3 generate.py --mode temporal 4 16 4 FwCGymHmbqcziisH5
+```
+
+## Experiment execution
+
+`evaluation.py` can run all experiments used by the paper. The main study
+compares balanced, recursive, exact, and enumeration-based batch construction
+on every static or temporal model in `problems` at structural scope 3. The
+static scope experiment runs Balanced, Recursive, and Exact, matching the
+paper. The temporal scope and trace-length experiments run all four methods,
+including Enumeration, while independently varying structural scope and
+maximum trace length. The online comparison measures every Balanced oracle
+path on configurations completed by Balanced batch construction. Batch methods
+receive the same 60-second budget for synthesizing one complete batch; the
+online tree traversal uses a 180-second safety timeout. Every candidate
+specification is used as the oracle. Because the bundled benchmark includes
+temporal problems, the main comparison requires a trace bound:
+
+```
+python3 evaluation.py --trace-length 3
+```
+
+The default is the main comparison only. A complete run of every paper study uses
+16 candidates for the static scope study and four for the more expensive
+temporal sensitivity studies:
+
+```
+python3 evaluation.py --study all --trace-length 3 \
+  --scope-study-size 16 --temporal-study-size 4
 ```
 
 Each completed problem is reported immediately on standard output. Detailed
-per-oracle classification counts, two-decimal timing measurements in seconds,
+per-oracle classification counts, batch timings rounded to two decimal places,
 per-problem statistics, and summaries grouped by candidate count are saved
-incrementally to `evaluation-results.json`. Results include complete batch
-sizes, per-node and per-oracle online measurements, and the RQ2 scope study.
-Truth-table evaluation and classification simulation occur after construction
-and are timed separately from the synthesis budget. For the online comparison,
-each oracle is charged only for nodes on its root-to-leaf path, and those path
-costs are averaged within each configuration.
+incrementally to `evaluation-results.json`. Online node and path timings retain
+higher precision. Results include complete batch sizes, per-node and
+per-oracle online measurements, the structural-scope study, and the independent
+temporal trace-length study. Truth-table evaluation and classification
+simulation occur after construction and are timed separately from the
+synthesis budget. For the online comparison, each oracle is charged only for
+nodes on its root-to-leaf path, and those path costs are averaged within each
+configuration.
+
+To reproduce the aggregate numbers presented in the paper from the saved raw
+entries, run:
+
+```
+python3 evaluation.py --paper-report
+```
+
+This option is read-only: it does not run Alloy, resume an experiment, or
+modify `evaluation-results.json`. It recomputes all three result tables, their
+supporting RQ statistics, and the temporal completion, scope, trace-length, and
+online results. Pairwise values are labelled with their joint-completion
+subset rather than being taken from the cached summaries. Displayed values use
+Python's round-to-nearest formatting at the precision shown in the report.
 
 Existing output is resumed automatically, so an interrupted evaluation does
 not repeat saved work. `--resume` can still be supplied explicitly:
@@ -100,15 +142,45 @@ not repeat saved work. `--resume` can still be supplied explicitly:
 python3 evaluation.py --resume
 ```
 
-To run only the RQ2 scope experiment:
+When the selected problem set contains temporal models, supply the maximum
+lasso trace length. The same bound is passed to every method and recorded in
+the result configuration:
 
 ```
-python3 evaluation.py --study scope
+python3 evaluation.py --resume --trace-length 3
 ```
 
-Use `--study main`, `--study scope`, or `--study online` to run one
-experiment, and `--overwrite` to deliberately discard an existing result
-file and start over.
+Legacy format-7 results without this setting can be resumed with a trace
+length; their completed static problems are retained. Later resumes inherit
+the recorded bound when `--trace-length` is omitted, while specifying a
+different bound is rejected to avoid mixing incompatible measurements.
+
+The scope mode performs two independent sweeps. The structural sweep varies
+scope from `--scope-study-min` through `--scope-study-max` while keeping trace
+length fixed at `--trace-length`. The temporal-depth sweep varies trace length
+from `--trace-study-min` through `--trace-study-max` while keeping scope fixed
+at `--scope`. With the defaults and `--scope 3 --trace-length 3`, the evaluated
+pairs are therefore `(3,3), (4,3), ..., (7,3)` and `(3,3), (3,4), ...,
+(3,7)`. The shared `(3,3)` result is reused.
+
+Static and temporal scope experiments can use different candidate counts. The
+paper configuration uses 16 candidates for the static experiment and four for
+the more expensive temporal experiments:
+
+```
+python3 evaluation.py --study scope --trace-length 3 \
+  --scope-study-size 16 --temporal-study-size 4
+```
+
+`--temporal-study-size` defaults to `--scope-study-size`. The trace-study
+minimum defaults to `--trace-length`; its maximum defaults to the same number
+of increments as the structural scope range, and both can be overridden with
+`--trace-study-min` and `--trace-study-max`.
+
+Use `--study main`, `--study scope`, or `--study online` to run one study
+family, and `--overwrite` to deliberately discard an existing result file and
+start over. The online study consumes completed Balanced entries from the main
+study, so run the main study first or use `--study all`.
 
 `--min-size`, `--max-size`, and `--limit` are available for shorter trial
 runs. A timed-out worker is terminated before the evaluation continues, so it
@@ -159,8 +231,9 @@ classification:
 - `enumerate` (cover-based) uses repeated SAT calls to enumerate every attainable
   nontrivial separation pattern of the candidates, retains one representative
   instance per pattern, and applies an exact finite minimum test-cover
-  encoding. This cover-based method is intentionally exponential and
-  static-only; temporal models are rejected.
+  encoding. This cover-based method is intentionally exponential. For temporal
+  inputs, it enumerates patterns over the same bounded lasso traces used by the
+  other methods.
 
 The optional classification flags consume the generated fixed suite; without
 them the complete suite is printed.
@@ -251,10 +324,12 @@ field rather than as a separately scopeable signature.
 For temporal inputs, the Alloy 5 encoding is internal: output test cases are
 reconstructed in Alloy 6 syntax so they can be pasted into the original model
 and visualized as traces by the Alloy 6 Analyzer. The supported temporal operators are `after`,
-`always`, `eventually`, `until`, and `releases`, including Boolean combinations
-and first-order quantifiers. For now, mutable declarations are deliberately
+`always`, `eventually`, `until`, `releases`, and postfix prime (`'`), including
+repeated primes, primed parenthesized relational expressions, Boolean combinations,
+implicit conjunctions between formulas in blocks, `implies ... else ...`
+conditionals, and first-order quantifiers. For now, mutable declarations are deliberately
 restricted to fieldless subset signatures of the form `var sig X in Parent {}`
 (with an optional multiplicity). Mutable fields declared on static signatures
 are encoded using the local-state idiom. Parameterized helper predicates,
 signature facts, past-time operators, mutable `extends` signatures, and mutable
-top-level signatures are rejected rather than silently mistranslated.
+non-subset signatures are rejected rather than silently mistranslated.

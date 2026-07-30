@@ -8,7 +8,6 @@ from alloy import (
     command_scope,
     int_bitwidth,
     parse,
-    requires_trace_length,
 )
 
 import jpype
@@ -143,10 +142,6 @@ def enumerated_test_set(content, scope, trace_length=None, statistics=None):
     """
 
     statistics = statistics if statistics is not None else {}
-    if requires_trace_length(content):
-        raise ValueError(
-            "batch enumerate is restricted to static Alloy models"
-        )
     collector = parse(content, trace_length=trace_length)
     predicates = list(collector.predicates)
     if len(predicates) < 2:
