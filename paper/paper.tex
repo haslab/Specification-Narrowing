@@ -1072,16 +1072,28 @@ synthesis effort. \arbitrarysplit{} completes all 196 static and 32 temporal
 configurations at the default bounds, while the cover-based methods have
 different completion profiles, particularly for temporal models.
 
-Adaptive presentation remains competitive with iterative narrowing: balanced
+Adaptive presentation of pre-computed batches remains competitive with iterative narrowing: balanced
 batches nearly attain the theoretical lower bound on mean classification
 cost, and minimum covers incur only a small additional cost. The extra
 upfront synthesis effort produces a complete reusable suite whose adaptive
 review requires no further synthesis.
 
+Future work will extend the evaluation to realistic case studies, particularly
+those with larger sets of temporal requirements. User studies will assess
+expert review effort and guide the tuning of optimization criteria to account
+for the difficulty of understanding and classifying individual tests.
+
+\subsubsection*{Acknowledgements.}
+OpenAI's GPT-5 and GPT-6 models were used to assist with coding, analysis of
+experimental results, and manuscript preparation. The research ideas are the
+authors' own. The authors thoroughly reviewed the resulting code, analyses,
+and text and take full responsibility for the final work.
+
 \section*{Data Availability}
-% ETAPS 2027 requires this statement immediately before the references.
-An anonymized replication package containing the implementation, benchmark
-models, and evaluation data will be made available with the submission.
+An anonymized replication package containing the implementation, benchmark models,
+evaluation data, and reproduction instructions will be made available to reviewers. 
+Upon acceptance, the complete package will be publicly archived on Zenodo, and the 
+implementation will be released as open source on GitHub.
 
 \bibliographystyle{splncs04}
 \bibliography{bibliography}
