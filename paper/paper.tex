@@ -119,7 +119,7 @@ The central challenge is to synthesize a small complete batch at reasonable
 computational cost. Each feasible test separates some candidate pairs, and a
 complete batch must collectively cover all pairs. Given an explicit pool of
 tests, minimizing batch cardinality is an instance of the classical NP-hard
-Minimum Test Set problem~\cite{GareyJohnson,moret1985minimizing}. Here, however,
+Minimum Test Set problem~\cite{GareyJohnson,moret1985minimizing}. In our context, however,
 the test space is represented implicitly by a logical theory and analysis
 bounds. A synthesis method must discover feasible tests as well as select
 enough of them to distinguish the candidates. Even under finite bounds, this
@@ -129,7 +129,7 @@ candidate set.
 We address this challenge through two families of symbolic synthesis
 methods. The \emph{cover-based} methods directly target minimum batch
 cardinality. \jointcover{} jointly synthesizes tests and selects a minimum
-cover of the candidate pairs in one MaxSAT query. A second
+cover of the candidate pairs in one maximum satisfiability (MaxSAT) query. A second
 cover-based method, \enumeratedcover{}, uses repeated SAT queries to
 enumerate the different ways feasible tests divide the candidates, retaining
 one representative test for each
@@ -139,7 +139,7 @@ complete, but differ in the
 symbolic models they solve and the amount of information they materialize.
 
 The \emph{tree-guided} methods adapt the recursive candidate-partitioning
-principle of existing adaptive narrowing
+principle of existing adaptive, interactive narrowing
 approaches~\cite{shriver2017end,gavran2020interactive,mendoza2026automating}
 to complete batch synthesis. We develop two symbolic synthesis methods based
 on this principle: \arbitrarysplit{} uses SAT to obtain any feasible split
@@ -164,19 +164,19 @@ and temporal bounds.
 Our main benchmark comprises 196 static configurations derived from 28
 requirements in three Alloy models, with candidate counts ranging from 4 to
 28. A small temporal replication study adds 32 configurations from eight
-requirements in one temporal model, with 4 to 16 candidates. On 167 static
+requirements in one dynamic model with temporal properties, with 4 to 16 candidates. On 167 static
 configurations completed by both tree-guided methods and at least one exact
-method, reuse reduces balanced batch cardinality by 42\% relative to the
+method, test reuse reduces balanced batch cardinality by 42\% relative to the
 unreused construction tree, while minimum batches are a further 29\% smaller.
 \arbitrarysplit{} completes every static and temporal configuration in the main
 study. The exact methods have different completion profiles: on the temporal
-benchmark, \enumeratedcover{} completes 31 of 32 configurations, compared with nine
+benchmark, \enumeratedcover{} completes 31 of 32 configurations, compared with 9
 for \jointcover{}.
 
 A complete batch can also support adaptive narrowing. After each
 classification, an interactive tool can select an unused test from the
 previously synthesized complete batch that most evenly divides the remaining
-candidates and stop when at most one remains. Our secondary analysis shows
+candidates and stop when at most one remains. Our secondary analysis compares complete batches with ideal adaptive approaches, and shows
 that balanced batches lie
 within 0.004 classifications on average of the unrestricted binary-tree lower
 bound on the completed static configurations. Even an optimal online synthesis
