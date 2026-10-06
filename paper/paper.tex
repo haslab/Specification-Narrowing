@@ -254,7 +254,7 @@ Its signatures and fields represent people, courses, projects, teaching,
 enrollment, and project work; the facts constrain their admissible
 relationships. Suppose we want to formalize the new requirement ``a professor
 cannot teach colleagues''. This requirement is ambiguous
-because it does not define a colleague. Asked to formalize it, GPT-5.2 returned
+because it does not define the concept of colleague. Asked to formalize it, GPT-5.2 returned
 nine predicates; Fig.~\ref{fig:courses-model} shows the six that are
 non-equivalent under the facts. They interpret colleagues as every other
 professor (\a{Spec1}),
@@ -319,7 +319,7 @@ distinguishing six candidates requires at least three tests. The batch in
 Table~\ref{tab:batch-matrix} attains this bound and is therefore
 cardinality-minimum.
 Table~\ref{tab:example-cardinality} compares the complete batches produced by
-the four synthesis methods on this example at scope~3. A complete binary
+the four proposed synthesis methods on this example at scope~3. A complete binary
 construction tree for six candidates has five internal test positions.
 \arbitrarysplit{} stores five distinct tests in this run. \balancedsplit{} reuses
 a test at one position and stores four distinct tests. \jointcover{} and
@@ -355,13 +355,13 @@ first; its desirable answer leaves $\{S_2,S_3,S_5\}$. Classifying $T_2$ as
 undesirable then isolates $S_3$, so review can stop without classifying $T_3$.
 Only two classifications are needed on this path, although the complete
 batch contains three tests and was synthesized before either answer was
-available.
+available. A secondary question in the evaluation is how the adaptive use of complete batches compares with online approaches.
 
 \section{Distinguishing Test Batches}
 \label{sec:problem}
 
 We now formalize complete distinguishing batches and minimum-cardinality synthesis
-independently of Alloy. Section~\ref{sec:synthesis} presents the four symbolic synthesis
+independently of Alloy. Section~\ref{sec:synthesis} then presents the four symbolic synthesis
 methods, and Section~\ref{sec:implementation} instantiates them for Alloy.
 
 \subsection{Candidates and Feasible Tests}
@@ -369,7 +369,7 @@ methods, and Section~\ref{sec:implementation} instantiates them for Alloy.
 Let $F=\{\phi_1,\ldots,\phi_N\}$ be a finite set of candidate specifications
 over a common vocabulary, and let $\mathcal I$ be the finite domain of tests
 admitted by the background theory and analysis bounds. A test may be a static
-instance or an execution trace; $I\models\phi$ means that test $I$ satisfies
+instance or an execution trace; $I\models\phi$ means that test $I \in \mathcal I$ satisfies
 candidate $\phi$. The domain $\mathcal I$ is represented implicitly by the
 theory and bounds, rather than supplied as an explicit list of tests.
 Two candidates are distinguishable within the bounds if some feasible test
@@ -383,7 +383,7 @@ be distinguished by test classification at the chosen bounds.
 A \emph{complete distinguishing batch} for $F$ is a finite set
 $T\subseteq\mathcal I$ such that, for every two distinct candidates
 $\phi_i,\phi_j\in F$, some $I\in T$ satisfies exactly one of them. A
-distinguishing batch is \emph{cardinality-minimum} if no smaller such batch
+distinguishing batch is \emph{cardinality-minimal} if no smaller such batch
 exists.
 \end{definition}
 
@@ -410,7 +410,7 @@ synthesis therefore solves
   \bigcup_{I\in T}D(I)=U.
 \]
 Given an explicit pool of tests, this is the classical NP-hard
-\emph{Minimum Test Set} problem~\cite{GareyJohnson,moret1985minimizing}. Here,
+\emph{Minimum Test Set} problem~\cite{GareyJohnson,moret1985minimizing}. Here, however,
 the test domain is implicit: synthesis must discover feasible tests as well
 as select a minimum cover. Even under finite bounds, the domain may admit
 exponentially many distinct ways of separating the candidates.
@@ -419,7 +419,7 @@ exponentially many distinct ways of separating the candidates.
 
 \begin{proposition}
 \label{prop:batch-bounds}
-For a pairwise distinguishable set of $N>1$ candidates, every minimum batch
+For a pairwise distinguishable set of $N>1$ candidates, every cardinality-minimal batch
 $T^*$ satisfies
 \[
   \lceil\log_2N\rceil\leq |T^*|\leq N-1.
@@ -500,7 +500,7 @@ for $N>1$,
 \[
   1\leq\mathcal C_\rho(F,T,\phi)\leq\min\{|T|,N-1\}.
 \]
-This cost is a secondary objective. A minimum cover need not include the test
+This cost is a secondary objective of our work. A minimum cover need not include the test
 that most evenly splits a particular remaining set, while balanced splitting
 may retain tests unnecessary for distinguishing the candidates as a whole.
 The evaluation examines whether minimum-cardinality batches incur a material
@@ -538,9 +538,9 @@ first.
 
 \paragraph{\jointcover{}.}
 Let $K=N-1$, the upper bound from Proposition~\ref{prop:batch-bounds}, and
-create $K$ potential tests with disjoint variable copies $X^1,\ldots,X^K$.
+create $K$ potential tests with disjoint Boolean variable copies $X^1,\ldots,X^K$.
 Introduce validity variables $v_{k,i}$ for each test position and candidate,
-and let $t_k$ indicate whether position $k$ is selected. The hard constraints
+and let $t_k$ indicate whether test position $k$ is selected. The hard constraints
 form the set
 \begin{equation}
 \label{eq:joint-separation}
@@ -553,13 +553,13 @@ form the set
     \;\Bigm|\;1\leq i<j\leq N\Bigr\}.
 \end{gathered}
 \end{equation}
-The last family requires some selected test to separate each candidate pair.
+The last constraint family requires some selected test to separate each candidate pair.
 The soft constraints are
 \begin{equation}
 \label{eq:joint-objective}
   \{\neg t_k\mid 1\leq k\leq K\}.
 \end{equation}
-Maximizing their number minimizes the selected positions in one MaxSAT
+Maximizing their number minimizes the selected test positions in one MaxSAT
 query. Equation~\eqref{eq:joint-separation} ensures completeness. Conversely,
 Proposition~\ref{prop:batch-bounds} guarantees that every minimum batch fits
 within the $K$ positions, so an optimum yields a cardinality-minimum batch.
