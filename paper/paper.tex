@@ -744,7 +744,7 @@ each requirement, we select the instructor's oracle and representatives of the
 $N-1$ most frequent incorrect semantic classes, using each class's most
 frequent syntactic submission and excluding unsupported representatives.
 Candidate counts $N\in\{4,8,12,16,20,24,28\}$ yield 196 configurations. A small
-temporal replication study uses eight requirements from Alloy4Fun's temporal
+temporal replication study uses 8 requirements from Alloy4Fun's temporal
 train-station model and $N\in\{4,8,12,16\}$, yielding 32 configurations. All
 candidate sets are pairwise distinguishable at the default bounds. Sets
 derived from the same requirement are nested, so our summaries are descriptive
@@ -816,7 +816,7 @@ All & 167 & 13.32 & 8.54 & 7.69 & 5.49 \\
 
 \paragraph{Reuse and minimum covers.}
 The corresponding construction trees have 13.32 internal nodes on average.
-Reuse reduces the stored batches to 8.54 tests for \arbitrarysplit{} and
+Test reuse reduces the stored batches to 8.54 tests for \arbitrarysplit{} and
 7.69 for \balancedsplit{}, reductions of 36\% and 42\%, respectively.
 Minimum covers contain 5.49 tests on average, a further 29\% reduction
 relative to \balancedsplit{}. On the 13 paired configurations with 28
@@ -828,7 +828,7 @@ The small temporal replication shows the same reduction: on 29 paired
 configurations, minimum batches average 4.21 tests compared with 5.90 for
 \balancedsplit{}, again 29\% smaller.
 
-\paragraph{Scope sensitivity.}
+\paragraph{Sensitivity to analysis bounds.}
 For $N=16$, the same 13 configurations complete with all three methods at
 every scope from~3 to~7. Across these scopes, \balancedsplit{} averages
 8.85--9.00 tests and \arbitrarysplit{} averages 9.38--10.54. The mean minimum,
@@ -964,7 +964,7 @@ The extra effort delivers a complete reusable suite before review, with
 adaptive presentation requiring no further synthesis.
 
 \subsection{Threats to Validity}
-The educational models, nested candidate sets, and selection of frequent,
+The educational Alloy models, nested candidate sets, and selection of frequent,
 supported semantic classes from student submissions limit generalization to
 industrial or GenAI-generated candidate pools. The temporal replication
 covers only one model. Minimum cardinalities and observed scope stability
