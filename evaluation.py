@@ -28,7 +28,7 @@ from typing import Optional
 
 
 ALGORITHMS = ("balanced-split", "arbitrary-split", "joint-cover", "enumerated-cover")
-SCOPE_STUDY_ALGORITHMS = ("balanced-split", "arbitrary-split", "joint-cover")
+SCOPE_STUDY_ALGORITHMS = ALGORITHMS
 TEMPORAL_STUDY_ALGORITHMS = ALGORITHMS
 TRACE_STUDY_ALGORITHMS = TEMPORAL_STUDY_ALGORITHMS
 METHOD_METADATA = {
@@ -668,7 +668,7 @@ def _trace_study_problem(main_problem):
 
 
 def scope_study_summary(study):
-    """Summarize the scope experiment, including its paired RQ2 subset."""
+    """Summarize completed scope runs and the Joint Cover completion subset."""
 
     scopes = [str(scope) for scope in study["configuration"]["scopes"]]
     algorithm_keys = list(
@@ -977,7 +977,7 @@ def ensure_scope_study(
     trace_length=None,
     temporal_candidate_count=None,
 ):
-    """Initialize the RQ2 scope study and reuse matching main-study results."""
+    """Initialize scope sensitivity studies and reuse matching main-study results."""
 
     scopes = sorted(set(scopes))
     if temporal_candidate_count is None:
@@ -1008,6 +1008,13 @@ def ensure_scope_study(
         changed = True
     else:
         study_configuration = study.setdefault("configuration", {})
+        # Extend the original static study without invalidating its measurements.
+        if study_configuration.get("algorithms") == [
+            "balanced-split", "arbitrary-split", "joint-cover"
+        ]:
+            study_configuration["algorithms"] = algorithms
+            study_configuration["method_metadata"] = method_metadata(algorithms)
+            changed = True
         changed |= _normalize_study_trace_length(
             study_configuration, trace_length, "scope-study"
         )
@@ -1652,7 +1659,7 @@ def run_scope_study(args, document, parse, predicate_holds):
         )
     ]
     print(
-        f"RQ2 scope study for static n={args.scope_study_size}, temporal "
+        f"Scope sensitivity study for static n={args.scope_study_size}, temporal "
         f"n={args.temporal_study_size}, scopes "
         f"{scopes[0]}--{scopes[-1]}: {len(pending_tasks)} problem/scope "
         f"combinations pending; scope-{args.scope} main results are reused. "

@@ -29,11 +29,6 @@
   \author{Anonymous Authors}
   \authorrunning{Anonymous Authors}
   \institute{}
-\else
-  \author{Alcino Cunha\inst{1} \and Nuno Macedo\inst{1}}
-  \authorrunning{A. Cunha and N. Macedo}
-  \institute{INESC TEC and Universidade do Minho, Braga, Portugal\\
-    \email{alcino@di.uminho.pt, nmacedo@di.uminho.pt}}
 \fi
 
 \maketitle
@@ -760,7 +755,7 @@ the completed batch and review simulation occur afterward and are excluded
 from the budget. Cardinalities are averaged across configurations. A minimum
 cardinality is certified by either cover-based method that completes. Runtime
 comparisons report medians on configurations completed by every method shown;
-each table identifies its comparison subset.
+separately labelled completion diagnostics use each method's own successful runs.
 
 For RQ3, every candidate in turn acts as the oracle, accepting exactly the
 tests it satisfies. Batch review follows the greedy adaptive policy from
@@ -772,11 +767,13 @@ charging each oracle only for synthesis and partitioning along its own path.
 Iterative path times are averaged per configuration before computing paired
 runtime medians.
 
-Sensitivity studies vary structural scope from~3 to~7 for static sets with
-$N=16$, using \arbitrarysplit{}, \balancedsplit{}, and \jointcover{}. Temporal
+Sensitivity studies evaluate all four methods at structural scopes~3--7 for
+static sets with $N=16$. Temporal
 studies use $N=4$, varying either scope or maximum trace length from~3 to~7
-while fixing the other bound at~3. Comparisons across bounds retain the same
-configurations completed by every method shown at every bound. Full results
+while fixing the other bound at~3. RQ1 retains the same configurations with
+both tree-guided batches and a minimum certified by either cover method at
+every bound. RQ2 pairs configurations completed by all four methods at every
+bound, explicitly identifying any reduced comparison subset. Full results
 are available in the replication package.
 
 \subsection{RQ1: Batch Cardinality}
@@ -829,10 +826,11 @@ configurations, minimum batches average 4.21 tests compared with 5.90 for
 \balancedsplit{}, again 29\% smaller.
 
 \paragraph{Sensitivity to analysis bounds.}
-For $N=16$, the same 13 configurations complete with all three methods at
-every scope from~3 to~7. Across these scopes, \balancedsplit{} averages
-8.85--9.00 tests and \arbitrarysplit{} averages 9.38--10.54. The mean minimum,
-certified by \jointcover{}, decreases from 5.69 tests at scope~3 to 5.54 at
+For $N=16$, the same 21 configurations have both tree-guided batches and a
+certified minimum at every scope from~3 to~7. Across these scopes,
+\balancedsplit{} averages 8.67--9.10 tests and \arbitrarysplit{} averages
+9.71--10.43. The mean minimum, certified by either cover method,
+decreases from 5.95 tests at scope~3 to 5.86 at
 scope~4 and remains unchanged through scope~7. These comparisons hold the
 candidate sets and completed subset fixed.
 In the paired static scope study, scope~3 already achieves nearly the same
@@ -841,9 +839,9 @@ with Alloy's \emph{small scope hypothesis}~\cite{jackson2012software} and
 supports the Analyzer's default scope of~3 as a practical starting point for
 complete batch synthesis.
 
-The temporal trace-length study also shows a stable minimum: on seven paired
-configurations with $N=4$ at scope~3, it remains 2.14 tests as maximum trace
-length increases from~3 to~7. Tree-guided means vary between 2.57 and 3.00
+The temporal trace-length study also shows a stable minimum: on eight paired
+configurations with $N=4$ at scope~3, it remains 2.25 tests as maximum trace
+length increases from~3 to~7. Tree-guided means vary between 2.62 and 3.00
 tests. RQ2 examines the synthesis cost of increasing these bounds.
 
 \subsection{RQ2: Synthesis Cost and Scalability}
@@ -915,18 +913,24 @@ It suggests that enumeration is attractive when individual test encodings
 are expensive and candidate sets are moderate.
 
 \paragraph{Sensitivity to analysis bounds.}
-On the 13 paired static configurations with $N=16$ from RQ1, increasing scope
-from~3 to~7 raises median synthesis time from 1.44 to 4.84~s for
-\arbitrarysplit{}, from 1.77 to 6.55~s for \balancedsplit{}, and from
-2.26 to 23.31~s for \jointcover{}. Across all 28 configurations,
-\jointcover{} completion falls from 24 to 13, while both tree-guided
-methods still complete at least 26 at scope~7.
+On the 11 static configurations with $N=16$ completed by all four methods
+at every scope, increasing scope from~3 to~7 raises median synthesis time
+from 1.26 to 6.52~s for \arbitrarysplit{}, from 1.73 to 6.25~s for
+\balancedsplit{}, from 2.02 to 23.31~s for \jointcover{}, and from
+2.00 to 3.37~s for \enumeratedcover{}. Across all 28 configurations,
+\jointcover{} completion falls from 24 to 13 and \enumeratedcover{} from
+24 to 20; at scope~7, \arbitrarysplit{} completes all 28 configurations
+and \balancedsplit{} completes 26.
 
 Increasing temporal trace length from~3 to~7 also raises synthesis time:
-on the seven paired configurations with $N=4$, \arbitrarysplit{} rises
+on the seven configurations completed by all four methods at every bound
+with $N=4$, \arbitrarysplit{} rises
 from 0.41 to 20.17~s and \enumeratedcover{} from 0.20 to 0.54~s.
-Increasing temporal structural scope to~6--7 causes timeouts and heap
-exhaustion even with four candidates.
+For temporal structural scope, no configuration completes with all four
+methods at every bound: \arbitrarysplit{} completes none at scopes~6--7,
+and \enumeratedcover{} completes none at scope~7. Timeouts and heap
+exhaustion thus arise even with four candidates; the replication package
+reports completion and each method's successful-run timings separately.
 The static scope and temporal trace-length studies therefore show that
 larger bounds can substantially increase synthesis effort with little
 reduction in complete batch cardinality.

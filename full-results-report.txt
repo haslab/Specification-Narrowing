@@ -1,7 +1,7 @@
 Full results report (recomputed from raw per-problem entries)
 Display rounding: Python round-to-nearest; NA means an unavailable statistic or an empty comparison subset.
 Source: evaluation-results.json
-Format version: 7; updated: 2026-07-30T10:20:10.271351+00:00
+Format version: 7; updated: 2026-10-09T09:28:20.937130+00:00
 Static benchmark: 196 configurations, 3136 oracle paths, 28 requirements
 Temporal benchmark: 32 configurations, 320 oracle paths, 8 requirements
 Default bounds: structural scope 3, maximum trace length 3; batch synthesis budget 60 s
@@ -35,24 +35,24 @@ Additional table: temporal replication batch cardinality
   Reduction from N-1: AS 29.2%, BS 29.6%; minimum vs BS 28.7%.
 
 Additional table: static scope sensitivity, mean batch cardinality
-  Scope | Paired configs | Arbitrary Split | Balanced Split | Joint Cover
-  ------+----------------+-----------------+----------------+------------
-  3     | 13             | 9.69            | 8.85           | 5.69
-  4     | 13             | 9.38            | 9.00           | 5.54
-  5     | 13             | 9.77            | 9.00           | 5.54
-  6     | 13             | 10.54           | 8.85           | 5.54
-  7     | 13             | 10.15           | 8.85           | 5.54
-  N=16; same 13 configurations completed by every shown method at every bound.
+  Scope | Paired configs | Arbitrary Split | Balanced Split | Minimum
+  ------+----------------+-----------------+----------------+--------
+  3     | 21             | 9.71            | 8.95           | 5.95
+  4     | 21             | 9.90            | 8.95           | 5.86
+  5     | 21             | 10.14           | 9.10           | 5.86
+  6     | 21             | 10.43           | 8.67           | 5.86
+  7     | 21             | 10.24           | 8.71           | 5.86
+  N=16; same 21 configurations completed by both tree methods and either cover method at every bound. Minimum uses either cover certificate, checking agreement when both finish.
 
 Additional table: temporal trace-length sensitivity, mean batch cardinality
-  Trace length | Paired configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover
-  -------------+----------------+-----------------+----------------+-------------+-----------------
-  3            | 7              | 2.86            | 2.57           | 2.14        | 2.14
-  4            | 7              | 3.00            | 2.86           | 2.14        | 2.14
-  5            | 7              | 2.57            | 3.00           | 2.14        | 2.14
-  6            | 7              | 3.00            | 2.86           | 2.14        | 2.14
-  7            | 7              | 3.00            | 2.86           | 2.14        | 2.14
-  N=4; same 7 configurations completed by every shown method at every bound.
+  Trace length | Paired configs | Arbitrary Split | Balanced Split | Minimum
+  -------------+----------------+-----------------+----------------+--------
+  3            | 8              | 2.88            | 2.62           | 2.25
+  4            | 8              | 3.00            | 2.88           | 2.25
+  5            | 8              | 2.62            | 3.00           | 2.25
+  6            | 8              | 3.00            | 2.88           | 2.25
+  7            | 8              | 3.00            | 2.88           | 2.25
+  N=4; same 8 configurations completed by both tree methods and either cover method at every bound. Minimum uses either cover certificate, checking agreement when both finish.
   Structural scope fixed at 3.
 
 RQ2: Synthesis Cost and Scalability
@@ -155,33 +155,38 @@ Additional table: construction and cover diagnostics
   Enumerated Cover divisions (maximum)      | 278    | NA
 
 Additional table: static scope sensitivity, paired synthesis medians (s)
-  Scope | Paired configs | Arbitrary Split | Balanced Split | Joint Cover
-  ------+----------------+-----------------+----------------+------------
-  3     | 13             | 1.44            | 1.77           | 2.26
-  4     | 13             | 1.21            | 3.51           | 2.67
-  5     | 13             | 1.57            | 4.28           | 5.85
-  6     | 13             | 4.03            | 5.57           | 14.07
-  7     | 13             | 4.84            | 6.55           | 23.31
+  Scope | Paired configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover
+  ------+----------------+-----------------+----------------+-------------+-----------------
+  3     | 11             | 1.26            | 1.73           | 2.02        | 2.00
+  4     | 11             | 1.21            | 3.51           | 2.67        | 1.91
+  5     | 11             | 1.57            | 4.28           | 5.07        | 2.49
+  6     | 11             | 4.64            | 5.32           | 10.51       | 2.89
+  7     | 11             | 6.52            | 6.25           | 23.31       | 3.37
   N=16; same completed subset at every bound.
 
 Additional table: static scope sensitivity, completion and success-only diagnostics
-  Scope | Method          | Completed/total | Timeout | Error | Partial | Missing | Mean size | Median s
-  ------+-----------------+-----------------+---------+-------+---------+---------+-----------+---------
-  3     | Arbitrary Split | 28/28           | 0       | 0     | 0       | 0       | 9.82      | 2.54
-  3     | Balanced Split  | 28/28           | 0       | 0     | 0       | 0       | 8.93      | 1.81
-  3     | Joint Cover     | 24/28           | 4       | 0     | 0       | 0       | 5.83      | 2.56
-  4     | Arbitrary Split | 28/28           | 0       | 0     | 0       | 0       | 9.93      | 2.96
-  4     | Balanced Split  | 28/28           | 0       | 0     | 0       | 0       | 9.00      | 4.08
-  4     | Joint Cover     | 23/28           | 5       | 0     | 0       | 0       | 5.70      | 6.16
-  5     | Arbitrary Split | 28/28           | 0       | 0     | 0       | 0       | 10.25     | 4.13
-  5     | Balanced Split  | 28/28           | 0       | 0     | 0       | 0       | 9.21      | 5.02
-  5     | Joint Cover     | 20/28           | 8       | 0     | 0       | 0       | 5.70      | 9.64
-  6     | Arbitrary Split | 28/28           | 0       | 0     | 0       | 0       | 10.21     | 5.72
-  6     | Balanced Split  | 27/28           | 1       | 0     | 0       | 0       | 8.85      | 6.10
-  6     | Joint Cover     | 16/28           | 12      | 0     | 0       | 0       | 5.50      | 15.29
-  7     | Arbitrary Split | 28/28           | 0       | 0     | 0       | 0       | 10.14     | 6.26
-  7     | Balanced Split  | 26/28           | 2       | 0     | 0       | 0       | 8.85      | 8.00
-  7     | Joint Cover     | 13/28           | 15      | 0     | 0       | 0       | 5.54      | 23.31
+  Scope | Method           | Completed/total | Timeout | Error | Partial | Missing | Mean size | Median s
+  ------+------------------+-----------------+---------+-------+---------+---------+-----------+---------
+  3     | Arbitrary Split  | 28/28           | 0       | 0     | 0       | 0       | 9.82      | 2.54
+  3     | Balanced Split   | 28/28           | 0       | 0     | 0       | 0       | 8.93      | 1.81
+  3     | Joint Cover      | 24/28           | 4       | 0     | 0       | 0       | 5.83      | 2.56
+  3     | Enumerated Cover | 24/28           | 4       | 0     | 0       | 0       | 6.21      | 2.25
+  4     | Arbitrary Split  | 28/28           | 0       | 0     | 0       | 0       | 9.93      | 2.96
+  4     | Balanced Split   | 28/28           | 0       | 0     | 0       | 0       | 9.00      | 4.08
+  4     | Joint Cover      | 23/28           | 5       | 0     | 0       | 0       | 5.70      | 6.16
+  4     | Enumerated Cover | 22/28           | 6       | 0     | 0       | 0       | 6.09      | 1.88
+  5     | Arbitrary Split  | 28/28           | 0       | 0     | 0       | 0       | 10.25     | 4.13
+  5     | Balanced Split   | 28/28           | 0       | 0     | 0       | 0       | 9.21      | 5.02
+  5     | Joint Cover      | 20/28           | 8       | 0     | 0       | 0       | 5.70      | 9.64
+  5     | Enumerated Cover | 21/28           | 7       | 0     | 0       | 0       | 6.19      | 2.10
+  6     | Arbitrary Split  | 28/28           | 0       | 0     | 0       | 0       | 10.21     | 5.72
+  6     | Balanced Split   | 27/28           | 1       | 0     | 0       | 0       | 8.85      | 6.10
+  6     | Joint Cover      | 16/28           | 12      | 0     | 0       | 0       | 5.50      | 15.29
+  6     | Enumerated Cover | 21/28           | 7       | 0     | 0       | 0       | 6.19      | 2.89
+  7     | Arbitrary Split  | 28/28           | 0       | 0     | 0       | 0       | 10.14     | 6.26
+  7     | Balanced Split   | 26/28           | 2       | 0     | 0       | 0       | 8.85      | 8.00
+  7     | Joint Cover      | 13/28           | 15      | 0     | 0       | 0       | 5.54      | 23.31
+  7     | Enumerated Cover | 20/28           | 8       | 0     | 0       | 0       | 6.15      | 4.37
   Diagnostic sizes and times use each method's own completed subset at each bound.
 
 Additional table: temporal trace-length sensitivity, paired synthesis medians (s)
@@ -219,6 +224,8 @@ Additional table: temporal trace-length sensitivity, completion and success-only
   7            | Joint Cover      | 7/8             | 1       | 0     | 0       | 0       | 2.14      | 4.74
   7            | Enumerated Cover | 8/8             | 0       | 0     | 0       | 0       | 2.25      | 0.53
   Diagnostic sizes and times use each method's own completed subset at each bound.
+
+Temporal Structural-Scope Sensitivity: no common completed subset for all four methods across all bounds; zero completions for AS at scope 6, AS at scope 7, EC at scope 7.
 
 Additional table: temporal structural-scope sensitivity, paired synthesis medians (s)
   Scope | Paired configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover

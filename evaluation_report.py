@@ -290,7 +290,10 @@ def _synthesis_report(problems):
     return {"rows": rows, "summary": rows[-1]}
 
 
-def _sensitivity_report(document, temporal, trace=False):
+def _sensitivity_report(
+    document, temporal, trace=False, cardinality=False, methods=METHODS
+):
+    """Keep a fixed cohort: either minimum certificate for RQ1, all methods for RQ2."""
     study = document.get("trace_study" if trace else "scope_study", {})
     configuration = study.get("configuration", {})
     field = "trace_lengths" if trace else "scopes"
@@ -299,14 +302,19 @@ def _sensitivity_report(document, temporal, trace=False):
         problem for problem in study.get("problems", [])
         if bool(problem.get("temporal")) == temporal
     ]
-    selected_methods = configuration.get(
-        "temporal_algorithms" if temporal and not trace else "algorithms",
-        METHODS if temporal else METHODS[:3],
-    )
-    methods = [method for method in METHODS if method in selected_methods]
+    methods = (*TREE_METHODS, "minimum") if cardinality else methods
 
     def result_for(problem, bound, method):
-        return problem.get(field, {}).get(str(bound), {}).get(method, {})
+        results = problem.get(field, {}).get(str(bound), {})
+        if method == "minimum":
+            minimum = _minimum_cardinality({
+                "file": f"{problem['file']} ({field}={bound})",
+                "algorithms": results,
+            })
+            return {} if minimum is None else {
+                "status": "completed", "test_suite_size": minimum,
+            }
+        return results.get(method, {})
 
     paired = [
         problem for problem in problems
@@ -483,6 +491,9 @@ def build_paper_report(document):
     static = [problem for problem in main if not problem.get("temporal")]
     temporal = [problem for problem in main if problem.get("temporal")]
     scope = _sensitivity_report(document, temporal=False)
+    scope["reduced_comparison"] = _sensitivity_report(
+        document, temporal=False, methods=METHODS[:3]
+    )
     temporal_scope = _sensitivity_report(document, temporal=True)
     trace = _sensitivity_report(document, temporal=True, trace=True)
     return {
@@ -500,8 +511,8 @@ def build_paper_report(document):
         "rq1": {
             "static": _cardinality_report(static),
             "temporal": _cardinality_report(temporal),
-            "static_scope": scope,
-            "temporal_trace": trace,
+            "static_scope": _sensitivity_report(document, temporal=False, cardinality=True),
+            "temporal_trace": _sensitivity_report(document, temporal=True, trace=True, cardinality=True),
         },
         "rq2": {
             "static": _synthesis_report(static),
@@ -575,13 +586,14 @@ def _print_cardinality(title, report):
 
 def _print_sensitivity_sizes(title, study):
     methods = study["methods"]
-    _table(title, [study["bound_label"], "Paired configs", *(METHOD_LABELS[m] for m in methods)], [
+    _table(title, [study["bound_label"], "Paired configs", *(METHOD_LABELS.get(m, "Minimum") for m in methods)], [
         [row["bound"], row["paired_configurations"], *(_fmt(row["suite_mean"].get(m)) for m in methods)]
         for row in study["rows"]
     ])
     print(
         f"  N={study['candidate_count']}; same {study['paired_all_bounds']} configurations "
-        "completed by every shown method at every bound."
+        "completed by both tree methods and either cover method at every bound. "
+        "Minimum uses either cover certificate, checking agreement when both finish."
     )
     if study["fixed_scope"] is not None:
         print(f"  Structural scope fixed at {study['fixed_scope']}.")
@@ -612,8 +624,45 @@ def _print_success_medians(title, report):
     )
 
 
+def _explain_empty_sensitivity(title, study):
+    if study["paired_all_bounds"] or not study["rows"]:
+        return
+    empty = [
+        f"{METHOD_ABBREVIATIONS[m]} at {study['bound_label'].lower()} {row['bound']}"
+        for row in study["rows"] for m in study["methods"]
+        if row["completion"][m]["completed"] == 0
+        and not row["completion"][m]["statuses"].get("missing")
+    ]
+    reason = "; zero completions for " + ", ".join(empty) if empty else ""
+    print(f"\n{title.title()}: no common completed subset for all four methods across all bounds{reason}.")
+    missing = [
+        f"{METHOD_ABBREVIATIONS[m]} at {study['bound_label'].lower()} {row['bound']} "
+        f"({row['completion'][m]['statuses']['missing']}/{study['configurations']})"
+        for row in study["rows"] for m in study["methods"]
+        if row["completion"][m]["statuses"].get("missing")
+    ]
+    if missing:
+        print("  Missing measurements: " + ", ".join(missing) + ".")
+
+
+def _print_reduced_sensitivity(title, study):
+    reduced = study.get("reduced_comparison")
+    if study["paired_all_bounds"] or not reduced or not reduced["paired_all_bounds"]:
+        return
+    print(
+        "  For a paired scope comparison, the following additional table excludes EC. "
+        "Its medians use the same configurations completed by AS, BS, and JC at every bound."
+    )
+    _table(f"Additional table: {title}, paired synthesis medians excluding EC (s)",
+           [study["bound_label"], "Paired configs", *(METHOD_ABBREVIATIONS[m] for m in reduced["methods"])], [
+        [row["bound"], row["paired_configurations"], *(_fmt(row["synthesis_median"][m]) for m in reduced["methods"])]
+        for row in reduced["rows"]
+    ])
+
+
 def _print_sensitivity_costs(title, study):
     methods = study["methods"]
+    _explain_empty_sensitivity(title, study)
     _table(f"Additional table: {title}, paired synthesis medians (s)",
            [study["bound_label"], "Paired configs", *(METHOD_LABELS[m] for m in methods)], [
         [row["bound"], row["paired_configurations"], *(_fmt(row["synthesis_median"].get(m)) for m in methods)]
@@ -637,6 +686,7 @@ def _print_sensitivity_costs(title, study):
         for row in study["rows"] for m in methods
     ])
     print("  Diagnostic sizes and times use each method's own completed subset at each bound.")
+    _print_reduced_sensitivity(title, study)
 
 
 def _print_iterative(title, report):
@@ -727,6 +777,7 @@ def _print_sensitivity_summary(title, study):
 
     methods = study["methods"]
     paired = study["paired_all_bounds"]
+    _explain_empty_sensitivity(title, study)
     if paired:
         _table(f"Additional table: {title}, synthesis seconds (completed/total)", [
             study["bound_label"], "Paired configs", *(METHOD_ABBREVIATIONS[m] for m in methods)
@@ -743,23 +794,25 @@ def _print_sensitivity_summary(title, study):
             f"completed configurations at every bound. Completion counts use all {study['configurations']} configurations."
         )
     else:
-        _table(f"Additional table: {title}, completion (completed/total)", [
+        _table(f"Additional table: {title}, completed-run synthesis seconds (completed/total)", [
             study["bound_label"], *(METHOD_ABBREVIATIONS[m] for m in methods)
         ], [
             [row["bound"], *(
-                f"{row['completion'][m]['completed']}/{row['completion'][m]['total']}"
+                f"{_fmt(row['synthesis_median_completed'][m])} "
+                f"({row['completion'][m]['completed']}/{row['completion'][m]['total']})"
                 for m in methods
             )]
             for row in study["rows"]
         ])
         print(
-            f"  N={study['candidate_count']}; no common completed subset across all bounds, "
-            "so paired synthesis medians are unavailable."
+            f"  N={study['candidate_count']}; medians use each method's own completed runs at each bound, "
+            "so their subsets can differ. These are not paired timing comparisons."
         )
     if study["fixed_scope"] is not None:
         print(f"  Structural scope fixed at {study['fixed_scope']}.")
     if study["fixed_trace_length"] is not None:
         print(f"  Maximum trace length fixed at {study['fixed_trace_length']}.")
+    _print_reduced_sensitivity(title, study)
 
 
 def print_paper_report(document, source: Path | None = None):

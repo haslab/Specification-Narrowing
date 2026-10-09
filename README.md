@@ -46,9 +46,9 @@ minimum covers are a further 29% smaller. On the 13 paired configurations with
 replication, minimum covers average 4.21 tests on 29 paired configurations,
 compared with 5.90 for Balanced Split.
 
-Batch cardinality is largely insensitive to the studied bounds. On the 13
+Batch cardinality is largely insensitive to the studied bounds. On the 21
 paired static configurations with 16 candidates, the mean minimum decreases
-from 5.69 tests at scope 3 to 5.54 at scope 4 and remains unchanged through
+from 5.95 tests at scope 3 to 5.86 at scope 4 and remains unchanged through
 scope 7. Increasing the bounds nevertheless raises synthesis cost.
 
 Under the 60-second complete-batch synthesis budget, Arbitrary Split,
@@ -163,11 +163,9 @@ python3 generate.py --mode temporal 4 16 4 FwCGymHmbqcziisH5
 `evaluation.py` can run all experiments used by the paper. The main study
 compares Arbitrary Split, Balanced Split, Joint Cover, and Enumerated Cover
 batch synthesis on every static or temporal model in `problems` at structural
-scope 3. The static scope experiment runs Balanced Split, Arbitrary Split, and
-Joint Cover, matching the paper. The temporal scope and trace-length
-experiments run all four methods,
-including Enumerated Cover, while independently varying structural scope and
-maximum trace length. The online comparison measures every iterative
+scope 3. The static scope experiment and the temporal scope and trace-length
+experiments also run all four methods, while independently varying structural
+scope and maximum trace length. The online comparison measures every iterative
 classification path on configurations completed by Balanced Split batch synthesis.
 Batch methods receive the same 60-second budget for synthesizing one complete batch; the
 online tree traversal uses a 180-second safety timeout. Every candidate
@@ -213,6 +211,8 @@ The focused report follows the paper's RQs:
   completed cover method, combining their certified minimum in one column.
   Additional tables give temporal cardinalities, static batch sizes at every
   structural scope, and temporal batch sizes at every trace-length bound.
+  All cardinality tables have Arbitrary Split, Balanced Split, and Minimum
+  columns; either cover method can certify the minimum at each bound.
 - **RQ2 — Synthesis cost and scalability:** Table 4 reports full-benchmark
   completion and synthesis medians on the common all-four static subset.
   Supporting tables give temporal completion by candidate count and synthesis
@@ -242,9 +242,13 @@ python3 evaluation.py --paper-report > paper-results-report.txt
 python3 evaluation.py --full-report > full-results-report.txt
 ```
 
-Sensitivity comparisons keep the same configurations at every bound.
-Success-only diagnostic tables use each method's own completed subset and are
-labelled accordingly; `NA` marks unavailable comparisons. Iterative runtime
+Sensitivity comparisons keep the same configurations at every bound: RQ1
+requires both tree methods and either cover certificate, while RQ2 requires
+all four methods for paired timings. If no common all-four subset exists,
+the reports explain why and show each method's own completed-run medians with
+completion counts. Any additional paired comparison excluding Enumerated
+Cover is identified explicitly. These completed-run diagnostics can use
+different subsets; `NA` marks unavailable statistics. Iterative runtime
 medians average oracle-path times within each configuration first, and paired
 increases are medians of per-configuration differences. Supplementary pairwise
 tables identify their own joint-completion subsets. All values are recomputed
@@ -257,6 +261,10 @@ not repeat saved work. `--resume` can still be supplied explicitly:
 ```
 python3 evaluation.py --resume
 ```
+
+Resuming the original three-method static scope study extends it to include
+Enumerated Cover without replacing prior measurements. Its scope-3 results
+are copied from the main study; only missing higher-scope runs are executed.
 
 When the selected problem set contains temporal models, supply the maximum
 lasso trace length. The same bound is passed to every method and recorded in
