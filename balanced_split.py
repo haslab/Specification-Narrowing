@@ -1,9 +1,9 @@
-"""Balanced distinguishing-batch construction with cross-branch test reuse."""
+"""Balanced Split batch synthesis and iterative classification evaluation."""
 
 from timeit import default_timer as timer
 
-from adaptive import balanced_test
 from alloy import parse
+from balanced_separator import balanced_separator
 from classification import predicate_holds
 
 
@@ -22,15 +22,15 @@ def _split_score(parts):
     return max(len(desirable), len(undesirable))
 
 
-def balanced_test_set(
+def balanced_split_batch(
     content,
     scope,
     trace_length=None,
     statistics=None,
-    generate=balanced_test,
+    generate=balanced_separator,
     evaluate=predicate_holds,
 ):
-    """Construct a balanced batch, reusing stored tests whenever optimal.
+    """Synthesize a complete batch with Balanced Split and cross-branch reuse.
 
     At each tree node, an already stored test is reused immediately if it
     achieves the information-theoretic optimum ``ceil(|C| / 2)``. Otherwise a
@@ -81,7 +81,7 @@ def balanced_test_set(
             instance = generate(collector, candidates, scope)
             maxsat_calls += 1
             if instance is None:
-                raise RuntimeError("balanced synthesis returned no separating test")
+                raise RuntimeError("Balanced Split synthesis returned no separating test")
             truths = {
                 predicate: evaluate(collector, instance, predicate, scope)
                 for predicate in predicates
@@ -89,11 +89,11 @@ def balanced_test_set(
             generated_parts = _partition(candidates, truths)
             generated_score = _split_score(generated_parts)
             if generated_score is None:
-                raise RuntimeError("balanced synthesis returned a non-splitting test")
+                raise RuntimeError("Balanced Split synthesis returned a non-splitting test")
 
             if best_reusable is not None and best_reusable[0] < generated_score:
                 raise RuntimeError(
-                    "balanced synthesis returned a worse split than a stored test"
+                    "Balanced Split synthesis returned a worse split than a stored test"
                 )
             if (
                 generated_score != ideal_score
@@ -126,15 +126,15 @@ def balanced_test_set(
     return instances
 
 
-def online_balanced_path_costs(
+def iterative_classification_path_costs(
     content,
     scope,
     trace_length=None,
-    generate=balanced_test,
+    generate=balanced_separator,
     evaluate=predicate_holds,
     clock=timer,
 ):
-    """Measure synthesis along every path of an always-online balanced policy.
+    """Measure every oracle path of adaptive iterative classification.
 
     The tree is traversed once for evaluation, but each oracle is charged only
     for generation and partitioning at nodes on its root-to-leaf path. Tests
@@ -166,7 +166,7 @@ def online_balanced_path_costs(
         node_start = clock()
         instance = generate(collector, candidates, scope)
         if instance is None:
-            raise RuntimeError("online balanced synthesis returned no separating test")
+            raise RuntimeError("iterative classification returned no separating test")
         truths = {
             predicate: evaluate(collector, instance, predicate, scope)
             for predicate in candidates
@@ -175,7 +175,7 @@ def online_balanced_path_costs(
 
         desirable, undesirable = _partition(candidates, truths)
         if not desirable or not undesirable:
-            raise RuntimeError("online balanced synthesis returned a non-splitting test")
+            raise RuntimeError("iterative classification returned a non-splitting test")
 
         node_seconds.append(
             {

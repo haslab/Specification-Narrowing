@@ -1,4 +1,4 @@
-"""Explicit separation-pattern enumeration followed by minimum test cover."""
+"""Enumerated Cover batch synthesis using SAT enumeration and minimum cover."""
 
 from itertools import combinations
 from timeit import default_timer as timer
@@ -131,8 +131,8 @@ def minimum_test_cover(coverage_masks, pair_count):
     ]
 
 
-def enumerated_test_set(content, scope, trace_length=None, statistics=None):
-    """Enumerate attainable candidate bipartitions, then minimize their cover.
+def enumerated_cover_batch(content, scope, trace_length=None, statistics=None):
+    """Synthesize a cardinality-minimum batch with Enumerated Cover.
 
     Every SAT call returns one instance whose candidate truth values induce a
     previously unseen nontrivial bipartition.  The next call blocks that whole

@@ -1,0 +1,417 @@
+Full results report (recomputed from raw per-problem entries)
+Display rounding: Python round-to-nearest; NA means an unavailable statistic or an empty comparison subset.
+Source: evaluation-results.json
+Format version: 7; updated: 2026-07-30T10:20:10.271351+00:00
+Static benchmark: 196 configurations, 3136 oracle paths, 28 requirements
+Temporal benchmark: 32 configurations, 320 oracle paths, 8 requirements
+Default bounds: structural scope 3, maximum trace length 3; batch synthesis budget 60 s
+Methods: AS = Arbitrary Split; BS = Balanced Split; JC = Joint Cover; EC = Enumerated Cover.
+
+RQ1: Batch Cardinality
+
+TABLE 3 (paper: tab:batch-cardinality): mean batch cardinality, static
+  N   | Configs | N-1   | Arbitrary Split | Balanced Split | Minimum
+  ----+---------+-------+-----------------+----------------+--------
+  4   | 28      | 3     | 2.82            | 2.71           | 2.46
+  8   | 28      | 7     | 5.93            | 5.36           | 4.14
+  12  | 28      | 11    | 7.86            | 7.18           | 5.14
+  16  | 28      | 15    | 9.82            | 8.93           | 6.00
+  20  | 25      | 19    | 11.24           | 10.28          | 6.96
+  24  | 17      | 23    | 12.94           | 11.41          | 7.82
+  28  | 13      | 27    | 14.23           | 12.00          | 8.69
+  All | 167     | 13.32 | 8.54            | 7.69           | 5.49
+  Paired subset: both tree methods and either completed cover method. Cover certificates: both methods 132; Joint Cover only 19; Enumerated Cover only 16.
+  Reduction from N-1: AS 35.9%, BS 42.3%; minimum vs BS 28.6%.
+
+Additional table: temporal replication batch cardinality
+  N   | Configs | N-1  | Arbitrary Split | Balanced Split | Minimum
+  ----+---------+------+-----------------+----------------+--------
+  4   | 8       | 3    | 2.88            | 2.62           | 2.25
+  8   | 8       | 7    | 5.38            | 5.75           | 4.00
+  12  | 8       | 11   | 7.88            | 7.62           | 5.25
+  16  | 5       | 15   | 8.60            | 8.60           | 6.00
+  All | 29      | 8.38 | 5.93            | 5.90           | 4.21
+  Paired subset: both tree methods and either completed cover method. Cover certificates: both methods 9; Joint Cover only 0; Enumerated Cover only 20.
+  Reduction from N-1: AS 29.2%, BS 29.6%; minimum vs BS 28.7%.
+
+Additional table: static scope sensitivity, mean batch cardinality
+  Scope | Paired configs | Arbitrary Split | Balanced Split | Joint Cover
+  ------+----------------+-----------------+----------------+------------
+  3     | 13             | 9.69            | 8.85           | 5.69
+  4     | 13             | 9.38            | 9.00           | 5.54
+  5     | 13             | 9.77            | 9.00           | 5.54
+  6     | 13             | 10.54           | 8.85           | 5.54
+  7     | 13             | 10.15           | 8.85           | 5.54
+  N=16; same 13 configurations completed by every shown method at every bound.
+
+Additional table: temporal trace-length sensitivity, mean batch cardinality
+  Trace length | Paired configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover
+  -------------+----------------+-----------------+----------------+-------------+-----------------
+  3            | 7              | 2.86            | 2.57           | 2.14        | 2.14
+  4            | 7              | 3.00            | 2.86           | 2.14        | 2.14
+  5            | 7              | 2.57            | 3.00           | 2.14        | 2.14
+  6            | 7              | 3.00            | 2.86           | 2.14        | 2.14
+  7            | 7              | 3.00            | 2.86           | 2.14        | 2.14
+  N=4; same 7 configurations completed by every shown method at every bound.
+  Structural scope fixed at 3.
+
+RQ2: Synthesis Cost and Scalability
+
+TABLE 4 (paper: tab:synthesis-cost): completion and common static synthesis medians
+  N/benchmark       | Configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover
+  ------------------+---------+-----------------+----------------+-------------+-----------------
+  4                 | 28      | 28              | 28             | 28          | 28
+  8                 | 28      | 28              | 28             | 28          | 28
+  12                | 28      | 28              | 28             | 26          | 28
+  16                | 28      | 28              | 28             | 24          | 24
+  20                | 28      | 28              | 27             | 24          | 19
+  24                | 28      | 28              | 20             | 19          | 14
+  28                | 28      | 28              | 17             | 14          | 11
+  Static total      | 196     | 196             | 176            | 163         | 152
+  Temporal total    | 32      | 32              | 30             | 9           | 31
+  Static median (s) | 132     | 1.16            | 1.08           | 1.15        | 0.66
+  Completion uses every configuration; static medians use the same all-four completed subset.
+
+Additional table: static synthesis medians by candidate count (s)
+  N   | All-four paired configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover
+  ----+-------------------------+-----------------+----------------+-------------+-----------------
+  4   | 28                      | 0.29            | 0.27           | 0.15        | 0.16
+  8   | 28                      | 0.69            | 0.61           | 0.38        | 0.33
+  12  | 26                      | 1.29            | 1.09           | 1.17        | 0.84
+  16  | 20                      | 2.36            | 1.75           | 2.44        | 2.25
+  20  | 17                      | 3.54            | 2.88           | 5.91        | 4.70
+  24  | 10                      | 4.55            | 5.76           | 12.89       | 7.31
+  28  | 3                       | 3.38            | 11.29          | 9.53        | 5.28
+  All | 132                     | 1.16            | 1.08           | 1.15        | 0.66
+  Median seconds on configurations completed by all four methods at each N.
+
+Additional table: temporal replication completion by candidate count
+  N   | Configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover
+  ----+---------+-----------------+----------------+-------------+-----------------
+  4   | 8       | 8               | 8              | 7           | 8
+  8   | 8       | 8               | 8              | 2           | 8
+  12  | 8       | 8               | 8              | 0           | 8
+  16  | 8       | 8               | 6              | 0           | 7
+  All | 32      | 32              | 30             | 9           | 31
+
+Additional table: temporal replication synthesis medians by candidate count (s)
+  N   | All-four paired configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover
+  ----+-------------------------+-----------------+----------------+-------------+-----------------
+  4   | 7                       | 0.41            | 1.01           | 0.95        | 0.20
+  8   | 2                       | 1.71            | 5.17           | 20.77       | 1.09
+  12  | 0                       | NA              | NA             | NA          | NA
+  16  | 0                       | NA              | NA             | NA          | NA
+  All | 9                       | 0.44            | 1.17           | 1.71        | 0.20
+  Median seconds on configurations completed by all four methods at each N.
+
+Additional table: static synthesis by candidate count, success-only diagnostics
+  N   | Configs | Arbitrary Split | Balanced Split | Joint Cover    | Enumerated Cover
+  ----+---------+-----------------+----------------+----------------+-----------------
+  4   | 28      | 0.29 (28/28)    | 0.27 (28/28)   | 0.15 (28/28)   | 0.16 (28/28)
+  8   | 28      | 0.69 (28/28)    | 0.61 (28/28)   | 0.38 (28/28)   | 0.33 (28/28)
+  12  | 28      | 1.42 (28/28)    | 1.10 (28/28)   | 1.17 (26/28)   | 0.84 (28/28)
+  16  | 28      | 2.54 (28/28)    | 1.81 (28/28)   | 2.56 (24/28)   | 2.25 (24/28)
+  20  | 28      | 3.58 (28/28)    | 3.18 (27/28)   | 5.87 (24/28)   | 4.41 (19/28)
+  24  | 28      | 4.47 (28/28)    | 6.39 (20/28)   | 12.80 (19/28)  | 7.31 (14/28)
+  28  | 28      | 3.66 (28/28)    | 11.29 (17/28)  | 12.57 (14/28)  | 12.42 (11/28)
+  All | 196     | 2.04 (196/196)  | 1.65 (176/196) | 2.26 (163/196) | 0.85 (152/196)
+  Cells show median seconds (completed/total); each method uses its own successful runs.
+
+Additional table: temporal synthesis by candidate count, success-only diagnostics
+  N   | Configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover
+  ----+---------+-----------------+----------------+-------------+-----------------
+  4   | 8       | 0.40 (8/8)      | 1.09 (8/8)     | 0.95 (7/8)  | 0.20 (8/8)
+  8   | 8       | 1.17 (8/8)      | 3.51 (8/8)     | 20.77 (2/8) | 0.54 (8/8)
+  12  | 8       | 3.09 (8/8)      | 9.41 (8/8)     | NA (0/8)    | 2.54 (8/8)
+  16  | 8       | 3.81 (8/8)      | 18.49 (6/8)    | NA (0/8)    | 7.95 (7/8)
+  All | 32      | 1.79 (32/32)    | 3.86 (30/32)   | 1.71 (9/32) | 0.84 (31/32)
+  Cells show median seconds (completed/total); each method uses its own successful runs.
+
+Additional table: default-bound completion and success-only diagnostics
+  Benchmark | Method           | Completed/total | Timeout | Error | Partial | Missing | Median s | Maximum s
+  ----------+------------------+-----------------+---------+-------+---------+---------+----------+----------
+  Static    | Arbitrary Split  | 196/196         | 0       | 0     | 0       | 0       | 2.04     | 8.90
+  Static    | Balanced Split   | 176/196         | 20      | 0     | 0       | 0       | 1.65     | 46.51
+  Static    | Joint Cover      | 163/196         | 33      | 0     | 0       | 0       | 2.26     | 58.99
+  Static    | Enumerated Cover | 152/196         | 44      | 0     | 0       | 0       | 0.85     | 58.61
+  Temporal  | Arbitrary Split  | 32/32           | 0       | 0     | 0       | 0       | 1.79     | 5.87
+  Temporal  | Balanced Split   | 30/32           | 2       | 0     | 0       | 0       | 3.86     | 37.63
+  Temporal  | Joint Cover      | 9/32            | 23      | 0     | 0       | 0       | 1.71     | 28.43
+  Temporal  | Enumerated Cover | 31/32           | 1       | 0     | 0       | 0       | 0.84     | 39.81
+  Diagnostic medians and maxima use each method's own completed subset.
+
+Additional table: construction and cover diagnostics
+  Measure                                   | Static | Temporal
+  ------------------------------------------+--------+---------
+  Balanced Split tree nodes (mean)          | 13.86  | 8.60
+  Balanced Split MaxSAT calls (mean)        | 7.98   | 6.07
+  Balanced Split stored tests (mean)        | 7.91   | 6.07
+  Balanced Split reuses (mean)              | 5.95   | 2.53
+  Both covers completed (configs)           | 135    | 9
+  Only Joint Cover completed (configs)      | 28     | 0
+  Only Enumerated Cover completed (configs) | 17     | 22
+  Neither cover completed (configs)         | 16     | 1
+  Enumerated Cover divisions (median)       | 33     | NA
+  Enumerated Cover divisions (maximum)      | 278    | NA
+
+Additional table: static scope sensitivity, paired synthesis medians (s)
+  Scope | Paired configs | Arbitrary Split | Balanced Split | Joint Cover
+  ------+----------------+-----------------+----------------+------------
+  3     | 13             | 1.44            | 1.77           | 2.26
+  4     | 13             | 1.21            | 3.51           | 2.67
+  5     | 13             | 1.57            | 4.28           | 5.85
+  6     | 13             | 4.03            | 5.57           | 14.07
+  7     | 13             | 4.84            | 6.55           | 23.31
+  N=16; same completed subset at every bound.
+
+Additional table: static scope sensitivity, completion and success-only diagnostics
+  Scope | Method          | Completed/total | Timeout | Error | Partial | Missing | Mean size | Median s
+  ------+-----------------+-----------------+---------+-------+---------+---------+-----------+---------
+  3     | Arbitrary Split | 28/28           | 0       | 0     | 0       | 0       | 9.82      | 2.54
+  3     | Balanced Split  | 28/28           | 0       | 0     | 0       | 0       | 8.93      | 1.81
+  3     | Joint Cover     | 24/28           | 4       | 0     | 0       | 0       | 5.83      | 2.56
+  4     | Arbitrary Split | 28/28           | 0       | 0     | 0       | 0       | 9.93      | 2.96
+  4     | Balanced Split  | 28/28           | 0       | 0     | 0       | 0       | 9.00      | 4.08
+  4     | Joint Cover     | 23/28           | 5       | 0     | 0       | 0       | 5.70      | 6.16
+  5     | Arbitrary Split | 28/28           | 0       | 0     | 0       | 0       | 10.25     | 4.13
+  5     | Balanced Split  | 28/28           | 0       | 0     | 0       | 0       | 9.21      | 5.02
+  5     | Joint Cover     | 20/28           | 8       | 0     | 0       | 0       | 5.70      | 9.64
+  6     | Arbitrary Split | 28/28           | 0       | 0     | 0       | 0       | 10.21     | 5.72
+  6     | Balanced Split  | 27/28           | 1       | 0     | 0       | 0       | 8.85      | 6.10
+  6     | Joint Cover     | 16/28           | 12      | 0     | 0       | 0       | 5.50      | 15.29
+  7     | Arbitrary Split | 28/28           | 0       | 0     | 0       | 0       | 10.14     | 6.26
+  7     | Balanced Split  | 26/28           | 2       | 0     | 0       | 0       | 8.85      | 8.00
+  7     | Joint Cover     | 13/28           | 15      | 0     | 0       | 0       | 5.54      | 23.31
+  Diagnostic sizes and times use each method's own completed subset at each bound.
+
+Additional table: temporal trace-length sensitivity, paired synthesis medians (s)
+  Trace length | Paired configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover
+  -------------+----------------+-----------------+----------------+-------------+-----------------
+  3            | 7              | 0.41            | 1.01           | 0.95        | 0.20
+  4            | 7              | 7.45            | 3.58           | 2.85        | 0.35
+  5            | 7              | 9.92            | 4.52           | 3.83        | 0.40
+  6            | 7              | 13.86           | 4.69           | 4.50        | 0.49
+  7            | 7              | 20.17           | 6.79           | 4.74        | 0.54
+  N=4; same completed subset at every bound.
+  Structural scope fixed at 3.
+
+Additional table: temporal trace-length sensitivity, completion and success-only diagnostics
+  Trace length | Method           | Completed/total | Timeout | Error | Partial | Missing | Mean size | Median s
+  -------------+------------------+-----------------+---------+-------+---------+---------+-----------+---------
+  3            | Arbitrary Split  | 8/8             | 0       | 0     | 0       | 0       | 2.88      | 0.40
+  3            | Balanced Split   | 8/8             | 0       | 0     | 0       | 0       | 2.62      | 1.09
+  3            | Joint Cover      | 7/8             | 1       | 0     | 0       | 0       | 2.14      | 0.95
+  3            | Enumerated Cover | 8/8             | 0       | 0     | 0       | 0       | 2.25      | 0.20
+  4            | Arbitrary Split  | 8/8             | 0       | 0     | 0       | 0       | 3.00      | 7.45
+  4            | Balanced Split   | 8/8             | 0       | 0     | 0       | 0       | 2.88      | 3.50
+  4            | Joint Cover      | 7/8             | 1       | 0     | 0       | 0       | 2.14      | 2.85
+  4            | Enumerated Cover | 8/8             | 0       | 0     | 0       | 0       | 2.25      | 0.32
+  5            | Arbitrary Split  | 8/8             | 0       | 0     | 0       | 0       | 2.62      | 10.54
+  5            | Balanced Split   | 8/8             | 0       | 0     | 0       | 0       | 3.00      | 4.55
+  5            | Joint Cover      | 7/8             | 1       | 0     | 0       | 0       | 2.14      | 3.83
+  5            | Enumerated Cover | 8/8             | 0       | 0     | 0       | 0       | 2.25      | 0.40
+  6            | Arbitrary Split  | 8/8             | 0       | 0     | 0       | 0       | 3.00      | 14.75
+  6            | Balanced Split   | 8/8             | 0       | 0     | 0       | 0       | 2.88      | 4.83
+  6            | Joint Cover      | 7/8             | 1       | 0     | 0       | 0       | 2.14      | 4.50
+  6            | Enumerated Cover | 8/8             | 0       | 0     | 0       | 0       | 2.25      | 0.46
+  7            | Arbitrary Split  | 8/8             | 0       | 0     | 0       | 0       | 3.00      | 20.50
+  7            | Balanced Split   | 8/8             | 0       | 0     | 0       | 0       | 2.88      | 5.95
+  7            | Joint Cover      | 7/8             | 1       | 0     | 0       | 0       | 2.14      | 4.74
+  7            | Enumerated Cover | 8/8             | 0       | 0     | 0       | 0       | 2.25      | 0.53
+  Diagnostic sizes and times use each method's own completed subset at each bound.
+
+Additional table: temporal structural-scope sensitivity, paired synthesis medians (s)
+  Scope | Paired configs | Arbitrary Split | Balanced Split | Joint Cover | Enumerated Cover
+  ------+----------------+-----------------+----------------+-------------+-----------------
+  3     | 0              | NA              | NA             | NA          | NA
+  4     | 0              | NA              | NA             | NA          | NA
+  5     | 0              | NA              | NA             | NA          | NA
+  6     | 0              | NA              | NA             | NA          | NA
+  7     | 0              | NA              | NA             | NA          | NA
+  N=4; same completed subset at every bound.
+  Maximum trace length fixed at 3.
+  No common completed subset across all bounds; paired sizes and times are NA.
+
+Additional table: temporal structural-scope sensitivity, completion and success-only diagnostics
+  Scope | Method           | Completed/total | Timeout | Error | Partial | Missing | Mean size | Median s
+  ------+------------------+-----------------+---------+-------+---------+---------+-----------+---------
+  3     | Arbitrary Split  | 8/8             | 0       | 0     | 0       | 0       | 2.88      | 0.40
+  3     | Balanced Split   | 8/8             | 0       | 0     | 0       | 0       | 2.62      | 1.09
+  3     | Joint Cover      | 7/8             | 1       | 0     | 0       | 0       | 2.14      | 0.95
+  3     | Enumerated Cover | 8/8             | 0       | 0     | 0       | 0       | 2.25      | 0.20
+  4     | Arbitrary Split  | 8/8             | 0       | 0     | 0       | 0       | 3.00      | 4.10
+  4     | Balanced Split   | 8/8             | 0       | 0     | 0       | 0       | 2.88      | 3.51
+  4     | Joint Cover      | 7/8             | 1       | 0     | 0       | 0       | 2.14      | 3.85
+  4     | Enumerated Cover | 8/8             | 0       | 0     | 0       | 0       | 2.25      | 0.30
+  5     | Arbitrary Split  | 8/8             | 0       | 0     | 0       | 0       | 3.00      | 13.95
+  5     | Balanced Split   | 8/8             | 0       | 0     | 0       | 0       | 2.50      | 7.10
+  5     | Joint Cover      | 6/8             | 2       | 0     | 0       | 0       | 2.17      | 6.11
+  5     | Enumerated Cover | 8/8             | 0       | 0     | 0       | 0       | 2.25      | 0.32
+  6     | Arbitrary Split  | 0/8             | 8       | 0     | 0       | 0       | NA        | NA
+  6     | Balanced Split   | 6/8             | 2       | 0     | 0       | 0       | 2.83      | 20.46
+  6     | Joint Cover      | 6/8             | 2       | 0     | 0       | 0       | 2.17      | 10.96
+  6     | Enumerated Cover | 6/8             | 0       | 2     | 0       | 0       | 2.17      | 0.39
+  7     | Arbitrary Split  | 0/8             | 7       | 1     | 0       | 0       | NA        | NA
+  7     | Balanced Split   | 2/8             | 6       | 0     | 0       | 0       | 3.00      | 18.05
+  7     | Joint Cover      | 3/8             | 2       | 3     | 0       | 0       | 2.33      | 14.41
+  7     | Enumerated Cover | 0/8             | 0       | 8     | 0       | 0       | NA        | NA
+  Diagnostic sizes and times use each method's own completed subset at each bound.
+
+RQ3: Adaptive Iterative Classification
+
+Additional table: static Balanced Split vs iterative, classifications
+  N   | Configs | Paths | Bound    | BS       | Iterative
+  ----+---------+-------+----------+----------+----------
+  4   | 28      | 112   | 2.000000 | 2.000000 | 2.000000
+  8   | 28      | 224   | 3.000000 | 3.000000 | 3.000000
+  12  | 28      | 336   | 3.666667 | 3.666667 | 3.666667
+  16  | 28      | 448   | 4.000000 | 4.011161 | 4.011161
+  20  | 27      | 540   | 4.400000 | 4.400000 | 4.400000
+  24  | 20      | 480   | 4.666667 | 4.666667 | 4.668750
+  28  | 17      | 476   | 4.857143 | 4.867647 | 4.869748
+  All | 176     | 2616  | 4.146789 | 4.150612 | 4.151376
+
+Additional table: static Balanced Split vs iterative, upfront synthesis (s)
+  N   | Configs | BS    | Iterative | Delta BS
+  ----+---------+-------+-----------+---------
+  4   | 28      | 0.27  | 0.21      | 0.07
+  8   | 28      | 0.61  | 0.37      | 0.25
+  12  | 28      | 1.10  | 0.59      | 0.54
+  16  | 28      | 1.81  | 0.95      | 0.85
+  20  | 27      | 3.18  | 2.15      | 1.09
+  24  | 20      | 6.39  | 3.88      | 2.03
+  28  | 17      | 11.29 | 9.11      | 2.38
+  All | 176     | 1.65  | 0.82      | 0.65
+
+Additional table: static Balanced Split vs iterative, aggregate differences
+  Method         | Classifications minus iterative | Classifications minus bound | Iterative cheaper configs
+  ---------------+---------------------------------+-----------------------------+--------------------------
+  Balanced Split | -0.000765                       | 0.003823                    | 176/176
+  Classification means and bounds weight shared oracle paths equally. Iterative times average paths within each configuration before taking medians; Delta columns are medians of paired batch-minus-iterative differences.
+
+Additional table: static all-four batches vs iterative, classifications
+  N   | Configs | Paths | Bound    | AS       | BS       | JC       | EC       | Iterative
+  ----+---------+-------+----------+----------+----------+----------+----------+----------
+  4   | 28      | 112   | 2.000000 | 2.017857 | 2.000000 | 2.017857 | 2.017857 | 2.000000
+  8   | 28      | 224   | 3.000000 | 3.058036 | 3.000000 | 3.026786 | 3.040179 | 3.000000
+  12  | 26      | 312   | 3.666667 | 3.689103 | 3.666667 | 3.673077 | 3.685897 | 3.666667
+  16  | 20      | 320   | 4.000000 | 4.075000 | 4.012500 | 4.087500 | 4.081250 | 4.012500
+  20  | 17      | 340   | 4.400000 | 4.420588 | 4.400000 | 4.420588 | 4.429412 | 4.400000
+  24  | 10      | 240   | 4.666667 | 4.691667 | 4.666667 | 4.704167 | 4.700000 | 4.666667
+  28  | 3       | 84    | 4.857143 | 4.880952 | 4.869048 | 4.869048 | 4.869048 | 4.869048
+  All | 132     | 1632  | 3.887255 | 3.924632 | 3.890319 | 3.920956 | 3.925245 | 3.890319
+
+Additional table: static all-four batches vs iterative, upfront synthesis (s)
+  N   | Configs | AS   | BS    | JC    | EC   | Iterative | Delta AS | Delta BS | Delta JC | Delta EC
+  ----+---------+------+-------+-------+------+-----------+----------+----------+----------+---------
+  4   | 28      | 0.29 | 0.27  | 0.15  | 0.16 | 0.21      | 0.06     | 0.07     | -0.06    | -0.04
+  8   | 28      | 0.69 | 0.61  | 0.38  | 0.33 | 0.37      | 0.27     | 0.25     | 0.05     | -0.02
+  12  | 26      | 1.29 | 1.09  | 1.17  | 0.84 | 0.56      | 0.79     | 0.54     | 0.57     | 0.29
+  16  | 20      | 2.36 | 1.75  | 2.44  | 2.25 | 0.86      | 1.44     | 0.90     | 1.55     | 1.41
+  20  | 17      | 3.54 | 2.88  | 5.91  | 4.70 | 2.15      | 1.71     | 1.06     | 3.22     | 2.51
+  24  | 10      | 4.55 | 5.76  | 12.89 | 7.31 | 3.80      | 0.00     | 2.03     | 6.93     | 0.87
+  28  | 3       | 3.38 | 11.29 | 9.53  | 5.28 | 9.11      | -5.73    | 1.75     | 5.22     | -2.90
+  All | 132     | 1.16 | 1.08  | 1.15  | 0.66 | 0.55      | 0.31     | 0.49     | 0.31     | 0.01
+
+Additional table: static all-four batches vs iterative, aggregate differences
+  Method           | Classifications minus iterative | Classifications minus bound | Iterative cheaper configs
+  -----------------+---------------------------------+-----------------------------+--------------------------
+  Arbitrary Split  | 0.034314                        | 0.037377                    | 110/132
+  Balanced Split   | 0.000000                        | 0.003064                    | 132/132
+  Joint Cover      | 0.030637                        | 0.033701                    | 85/132
+  Enumerated Cover | 0.034926                        | 0.037990                    | 67/132
+  Classification means and bounds weight shared oracle paths equally. Iterative times average paths within each configuration before taking medians; Delta columns are medians of paired batch-minus-iterative differences.
+
+Additional table: temporal Balanced Split vs iterative, classifications
+  N   | Configs | Paths | Bound    | BS       | Iterative
+  ----+---------+-------+----------+----------+----------
+  4   | 8       | 32    | 2.000000 | 2.000000 | 2.000000
+  8   | 8       | 64    | 3.000000 | 3.015625 | 3.015625
+  12  | 8       | 96    | 3.666667 | 3.666667 | 3.666667
+  16  | 6       | 96    | 4.000000 | 4.010417 | 4.010417
+  All | 30      | 288   | 3.444444 | 3.451389 | 3.451389
+
+Additional table: temporal Balanced Split vs iterative, upfront synthesis (s)
+  N   | Configs | BS    | Iterative | Delta BS
+  ----+---------+-------+-----------+---------
+  4   | 8       | 1.09  | 0.92      | 0.16
+  8   | 8       | 3.51  | 2.37      | 1.14
+  12  | 8       | 9.41  | 5.58      | 3.56
+  16  | 6       | 18.49 | 11.70     | 6.79
+  All | 30      | 3.86  | 2.47      | 1.68
+
+Additional table: temporal Balanced Split vs iterative, aggregate differences
+  Method         | Classifications minus iterative | Classifications minus bound | Iterative cheaper configs
+  ---------------+---------------------------------+-----------------------------+--------------------------
+  Balanced Split | 0.000000                        | 0.006944                    | 29/30
+  Classification means and bounds weight shared oracle paths equally. Iterative times average paths within each configuration before taking medians; Delta columns are medians of paired batch-minus-iterative differences.
+
+Additional table: temporal all-four batches vs iterative, classifications
+  N   | Configs | Paths | Bound    | AS       | BS       | JC       | EC       | Iterative
+  ----+---------+-------+----------+----------+----------+----------+----------+----------
+  4   | 7       | 28    | 2.000000 | 2.000000 | 2.000000 | 2.000000 | 2.000000 | 2.000000
+  8   | 2       | 16    | 3.000000 | 3.000000 | 3.000000 | 3.000000 | 3.000000 | 3.000000
+  12  | 0       | 0     | NA       | NA       | NA       | NA       | NA       | NA
+  16  | 0       | 0     | NA       | NA       | NA       | NA       | NA       | NA
+  All | 9       | 44    | 2.363636 | 2.363636 | 2.363636 | 2.363636 | 2.363636 | 2.363636
+
+Additional table: temporal all-four batches vs iterative, upfront synthesis (s)
+  N   | Configs | AS   | BS   | JC    | EC   | Iterative | Delta AS | Delta BS | Delta JC | Delta EC
+  ----+---------+------+------+-------+------+-----------+----------+----------+----------+---------
+  4   | 7       | 0.41 | 1.01 | 0.95  | 0.20 | 0.79      | -0.31    | 0.13     | 0.27     | -0.59
+  8   | 2       | 1.71 | 5.17 | 20.77 | 1.09 | 3.50      | -1.79    | 1.67     | 17.27    | -2.41
+  12  | 0       | NA   | NA   | NA    | NA   | NA        | NA       | NA       | NA       | NA
+  16  | 0       | NA   | NA   | NA    | NA   | NA        | NA       | NA       | NA       | NA
+  All | 9       | 0.44 | 1.17 | 1.71  | 0.20 | 1.07      | -0.71    | 0.19     | 0.59     | -0.87
+
+Additional table: temporal all-four batches vs iterative, aggregate differences
+  Method           | Classifications minus iterative | Classifications minus bound | Iterative cheaper configs
+  -----------------+---------------------------------+-----------------------------+--------------------------
+  Arbitrary Split  | 0.000000                        | 0.000000                    | 1/9
+  Balanced Split   | 0.000000                        | 0.000000                    | 8/9
+  Joint Cover      | 0.000000                        | 0.000000                    | 9/9
+  Enumerated Cover | 0.000000                        | 0.000000                    | 0/9
+  Classification means and bounds weight shared oracle paths equally. Iterative times average paths within each configuration before taking medians; Delta columns are medians of paired batch-minus-iterative differences.
+  Iterative traversal safety timeout: 180 s; maximum completed full-tree traversal (static/temporal): 44.68/36.77 s. Individual oracle costs include only their own paths through this tree.
+
+Supplementary pairwise comparisons
+
+Additional table: static pairwise completed subsets
+  Left / right                       | Configs | Paths | Mean batch L/R | Median seconds L/R | Mean class L/R
+  -----------------------------------+---------+-------+----------------+--------------------+------------------
+  Arbitrary Split / Balanced Split   | 176     | 2616  | 8.85/7.91      | 1.75/1.65          | 4.184251/4.150612
+  Arbitrary Split / Joint Cover      | 163     | 2360  | 8.47/5.27      | 1.53/2.26          | 4.155508/4.152966
+  Arbitrary Split / Enumerated Cover | 152     | 2080  | 8.16/5.40      | 1.30/0.85          | 4.077404/4.081731
+  Balanced Split / Joint Cover       | 151     | 2048  | 7.36/5.17      | 1.20/1.77          | 4.021973/4.056152
+  Balanced Split / Enumerated Cover  | 148     | 1976  | 7.26/5.35      | 1.17/0.82          | 4.004555/4.042004
+  Joint Cover / Enumerated Cover     | 135     | 1712  | 5.01/5.01      | 1.15/0.68          | 3.963201/3.969626
+
+Additional table: static pairwise outcomes (left smaller / tie / right smaller)
+  Left / right                       | Batch size | Synthesis time | Class paths  | Mean class per config
+  -----------------------------------+------------+----------------+--------------+----------------------
+  Arbitrary Split / Balanced Split   | 30/52/94   | 98/3/75        | 415/1722/479 | 0/112/64
+  Arbitrary Split / Joint Cover      | 0/23/140   | 84/0/79        | 453/1454/453 | 29/100/34
+  Arbitrary Split / Enumerated Cover | 0/23/129   | 62/1/89        | 396/1297/387 | 37/86/29
+  Balanced Split / Joint Cover       | 0/29/122   | 73/0/78        | 395/1316/337 | 51/98/2
+  Balanced Split / Enumerated Cover  | 0/33/115   | 50/0/98        | 391/1255/330 | 55/92/1
+  Joint Cover / Enumerated Cover     | 0/135/0    | 55/3/77        | 311/1098/303 | 28/90/17
+
+Additional table: temporal pairwise completed subsets
+  Left / right                       | Configs | Paths | Mean batch L/R | Median seconds L/R | Mean class L/R
+  -----------------------------------+---------+-------+----------------+--------------------+------------------
+  Arbitrary Split / Balanced Split   | 30      | 288   | 6.07/6.07      | 1.69/3.86          | 3.500000/3.451389
+  Arbitrary Split / Joint Cover      | 9       | 44    | 3.44/2.33      | 0.44/1.71          | 2.363636/2.363636
+  Arbitrary Split / Enumerated Cover | 31      | 304   | 6.29/4.29      | 1.76/0.84          | 3.529605/3.519737
+  Balanced Split / Joint Cover       | 9       | 44    | 3.22/2.33      | 1.17/1.71          | 2.363636/2.363636
+  Balanced Split / Enumerated Cover  | 29      | 272   | 5.90/4.21      | 3.67/0.64          | 3.419118/3.452206
+  Joint Cover / Enumerated Cover     | 9       | 44    | 2.33/2.33      | 1.71/0.20          | 2.363636/2.363636
+
+Additional table: temporal pairwise outcomes (left smaller / tie / right smaller)
+  Left / right                       | Batch size | Synthesis time | Class paths | Mean class per config
+  -----------------------------------+------------+----------------+-------------+----------------------
+  Arbitrary Split / Balanced Split   | 6/17/7     | 29/0/1         | 39/199/50   | 1/20/9
+  Arbitrary Split / Joint Cover      | 0/2/7      | 8/0/1          | 0/44/0      | 0/9/0
+  Arbitrary Split / Enumerated Cover | 0/5/26     | 9/0/22         | 53/197/54   | 6/18/7
+  Balanced Split / Joint Cover       | 0/4/5      | 7/0/2          | 0/44/0      | 0/9/0
+  Balanced Split / Enumerated Cover  | 0/6/23     | 1/0/28         | 41/197/34   | 10/18/1
+  Joint Cover / Enumerated Cover     | 0/9/0      | 0/0/9          | 0/44/0      | 0/9/0

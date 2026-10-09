@@ -74,8 +74,12 @@ def specification_error(base, specification, mode):
 
 
 def generate_problems(dataset, sizes, model_ids, mode, output_dir=Path("problems")):
-    """Filter accepted models/specifications and write the requested problems."""
+    """Generate nested candidate sets only for requirements supporting every size."""
 
+    sizes = tuple(sizes)
+    if not sizes:
+        return []
+    maximum_size = max(sizes)
     generated = []
     selected = set(model_ids)
     for example in (item for item in dataset if item["id"] in selected):
@@ -97,15 +101,16 @@ def generate_problems(dataset, sizes, model_ids, mode, output_dir=Path("problems
                         f"{example['id']} {requirement['pred']}: {error}"
                     )
 
-            for size in sizes:
-                if size > len(specifications):
-                    print(
-                        f"Skipping generation for {example['id']} "
-                        f"{requirement['pred']} size {size} since only "
-                        f"{len(specifications)} specifications are available."
-                    )
-                    continue
+            if len(specifications) < maximum_size:
+                print(
+                    f"Skipped requirement {example['id']} "
+                    f"{requirement['pred']}: only {len(specifications)} "
+                    "supported specifications are available for maximum "
+                    f"requested size {maximum_size}."
+                )
+                continue
 
+            for size in sizes:
                 model = base_model
                 for index, specification in enumerate(specifications[:size]):
                     model += f"\npred S{index} {{ {specification} }}\n"

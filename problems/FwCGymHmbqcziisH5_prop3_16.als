@@ -1,0 +1,85 @@
+sig Track { prox : set Track, signal : lone Signal } sig Junction extends Track {} sig Entry, Exit in Track {} sig Signal {} var sig Green in Signal {} sig Train { var pos : lone Track } fact Layout { all t : Track | t not in Junction iff (lone t.prox and lone prox.t) no t : Track | t in t.^prox all s : Signal | one signal.s all j : Junction, t : prox.j | some t.signal all t : Track | t in Entry iff no prox.t all t : Track | t in Exit iff no t.prox }
+pred S0 { {
+	// Trains never move
+  // está horrível mas funciona
+  //all t: Train, tk: Track | (t->tk in pos implies always t->tk in pos) and (t->tk not in pos implies always t->tk not in pos)
+  always pos' = pos
+} }
+
+pred S1 { {
+	// Trains never move
+  // está horrível mas funciona
+  //all t: Train, tk: Track | (t->tk in pos implies always t->tk in pos) and (t->tk not in pos implies always t->tk not in pos)
+  always prox' = prox
+} }
+
+pred S2 { {
+	// Trains never move
+  always all t: Train, tk: Track | t->tk in pos implies always t->tk in pos
+} }
+
+pred S3 { {
+	// Trains never move
+		always no prox
+} }
+
+pred S4 { {
+	// Trains never move
+	always no Train.pos
+} }
+
+pred S5 { {
+	// Trains never move
+	always no Train
+} }
+
+pred S6 { {
+	// Trains never move
+	always Train.pos' =Train.pos
+} }
+
+pred S7 { {
+	// Trains never move
+	always all t: Train | one tr: Track | always t in pos.tr implies t' in pos.tr
+} }
+
+pred S8 { {
+	// Trains never move
+	all t : Train | t.pos = t.pos'
+} }
+
+pred S9 { {
+	// Trains never move
+	no prox and no Entry and no Exit
+} }
+
+pred S10 { {
+	// Trains never move
+  //always all t: Train, tk: Track | (t->tk in pos implies always t->tk in pos) and (t->tk not in pos implies always t->tk not in pos)
+  always (Train->Track in pos implies always Train->Track in pos) and (Train->Track not in pos implies always Train->Track not in pos)
+} }
+
+pred S11 { {
+	// Trains never move
+	always( all t:Train | one t.pos)
+} }
+
+pred S12 { {
+	// Trains never move
+	all t : Train | always t.pos in Entry
+} }
+
+pred S13 { {
+	// Trains never move
+	no Train.pos
+} }
+
+pred S14 { {
+	// Trains never move
+	Train.pos' =Train.pos
+} }
+
+pred S15 { {
+	// Trains never move
+  all t: Train, tk: Track | t->tk in pos implies always t->tk in pos
+} }

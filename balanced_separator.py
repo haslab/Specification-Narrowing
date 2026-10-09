@@ -1,4 +1,4 @@
-"""Balanced single-test synthesis used by the balanced batch constructor."""
+"""Single-test synthesis shared by Balanced Split and iterative classification."""
 
 from itertools import combinations
 
@@ -44,7 +44,7 @@ def _instance_from_solution(collector, world, solution, instance_atom=None):
     return build_instance(collector, value)
 
 
-def _balanced_model(collector, candidates, scope):
+def _balanced_separator_model(collector, candidates, scope):
     model = "sig Atom {}\nabstract sig Formula {}\n"
     model += "one sig " + ",".join(candidates) + " extends Formula {}\n"
     model += "one sig Instance {\n"
@@ -100,12 +100,12 @@ def _balanced_model(collector, candidates, scope):
     return analysis
 
 
-def balanced_test(collector, candidates, scope):
+def balanced_separator(collector, candidates, scope):
     """Generate a test maximizing the number of separated candidate pairs."""
 
     if len(candidates) < 2:
         return None
-    analysis = _balanced_model(collector, candidates, scope)
+    analysis = _balanced_separator_model(collector, candidates, scope)
     world = CompUtil.parseEverything_fromString(None, analysis)
     command = world.getAllCommands()[0]
     options = A4Options()

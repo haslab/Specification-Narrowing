@@ -1,4 +1,4 @@
-"""Tree-guided distinguishing-batch synthesis with recursive SAT queries."""
+"""Arbitrary Split batch synthesis using SAT queries and cross-branch reuse."""
 
 import sys
 from timeit import default_timer as timer
@@ -13,7 +13,9 @@ if not jpype.isJVMStarted():
 from edu.mit.csail.sdg.parser import CompUtil
 from edu.mit.csail.sdg.translator import A4Options, TranslateAlloyToKodkod
 
-def recursive_test_set(content, scope, trace_length=None):
+def arbitrary_split_batch(content, scope, trace_length=None):
+    """Synthesize a complete distinguishing batch with Arbitrary Split."""
+
     collector = parse(content, trace_length=trace_length)
     model_content = collector.content
     scope_clause = command_scope(collector, scope)
@@ -89,7 +91,7 @@ def recursive_test_set(content, scope, trace_length=None):
 def main():
         # check command line arguments
     if len(sys.argv) not in (3, 4):
-        print("Usage: python recursive.py <filename> <scope> [trace-length]")
+        print("Usage: python arbitrary_split.py <filename> <scope> [trace-length]")
         sys.exit(1)
 
     filename = sys.argv[1]
@@ -102,7 +104,7 @@ def main():
             print("Error: trace-length is required for models using Alloy 6 temporal features.")
             sys.exit(1)
         start = timer()
-        test_set = recursive_test_set(content, scope, trace_length)
+        test_set = arbitrary_split_batch(content, scope, trace_length)
         end = timer()
         print(f"// Generated {len(test_set)} test cases in {end - start} seconds")
         print_instances(test_set, scope, parse(content, trace_length=trace_length))

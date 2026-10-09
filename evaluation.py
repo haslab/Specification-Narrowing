@@ -27,25 +27,25 @@ from timeit import default_timer as timer
 from typing import Optional
 
 
-ALGORITHMS = ("balanced", "recursive", "exact", "enumerate")
-SCOPE_STUDY_ALGORITHMS = ("balanced", "recursive", "exact")
+ALGORITHMS = ("balanced-split", "arbitrary-split", "joint-cover", "enumerated-cover")
+SCOPE_STUDY_ALGORITHMS = ("balanced-split", "arbitrary-split", "joint-cover")
 TEMPORAL_STUDY_ALGORITHMS = ALGORITHMS
 TRACE_STUDY_ALGORITHMS = TEMPORAL_STUDY_ALGORITHMS
 METHOD_METADATA = {
-    "balanced": {
-        "display_name": "Balanced MaxSAT",
+    "balanced-split": {
+        "display_name": "Balanced Split",
         "family": "tree-guided",
     },
-    "recursive": {
-        "display_name": "Recursive SAT",
+    "arbitrary-split": {
+        "display_name": "Arbitrary Split",
         "family": "tree-guided",
     },
-    "exact": {
-        "display_name": "Exact MaxSAT",
+    "joint-cover": {
+        "display_name": "Joint Cover",
         "family": "cover-based",
     },
-    "enumerate": {
-        "display_name": "Separation-pattern enumeration",
+    "enumerated-cover": {
+        "display_name": "Enumerated Cover",
         "family": "cover-based",
     },
 }
@@ -113,17 +113,17 @@ def _worker_server(
 ) -> int:
     """Serve newline-delimited synthesis requests on stdin/stdout."""
 
-    from balanced import balanced_test_set
-    from enumeration import enumerated_test_set
-    from exact import exact_test_set
-    from recursive import recursive_test_set
+    from arbitrary_split import arbitrary_split_batch
+    from balanced_split import balanced_split_batch
+    from enumerated_cover import enumerated_cover_batch
+    from joint_cover import joint_cover_batch
 
     content = Path(filename).read_text()
     strategy = {
-        "balanced": balanced_test_set,
-        "exact": exact_test_set,
-        "recursive": recursive_test_set,
-        "enumerate": enumerated_test_set,
+        "balanced-split": balanced_split_batch,
+        "joint-cover": joint_cover_batch,
+        "arbitrary-split": arbitrary_split_batch,
+        "enumerated-cover": enumerated_cover_batch,
     }[algorithm]
 
     for line in sys.stdin:
@@ -135,7 +135,7 @@ def _worker_server(
         try:
             start = timer()
             with redirect_stdout(messages):
-                if algorithm in {"balanced", "enumerate"}:
+                if algorithm in {"balanced-split", "enumerated-cover"}:
                     algorithm_statistics = {}
                     strategy_arguments = (
                         content,
@@ -171,12 +171,12 @@ def _online_worker(
     scope: int,
     trace_length: Optional[int],
 ) -> int:
-    """Measure all oracle paths for one always-online balanced tree."""
+    """Measure all oracle paths of adaptive iterative classification."""
 
-    from balanced import online_balanced_path_costs
+    from balanced_split import iterative_classification_path_costs
 
     try:
-        result = online_balanced_path_costs(
+        result = iterative_classification_path_costs(
             Path(filename).read_text(), scope, trace_length
         )
         result["status"] = "completed"
@@ -439,14 +439,14 @@ def evaluate_batch(
         result["status"] = "partial"
     if synthesis.get("messages"):
         result["messages"] = synthesis["messages"]
-    if synthesis.get("enumeration") is not None:
-        enumeration = dict(synthesis["enumeration"])
+    if synthesis.get("enumerated-cover") is not None:
+        enumeration = dict(synthesis["enumerated-cover"])
         for key in ("enumeration_seconds", "cover_seconds"):
             if enumeration.get(key) is not None:
                 enumeration[key] = round(enumeration[key], 2)
-        result["enumeration"] = enumeration
-    if synthesis.get("balanced") is not None:
-        result["balanced"] = dict(synthesis["balanced"])
+        result["enumerated-cover"] = enumeration
+    if synthesis.get("balanced-split") is not None:
+        result["balanced-split"] = dict(synthesis["balanced-split"])
     return result
 
 
@@ -497,8 +497,8 @@ def print_algorithm_result(key, result):
             f"{result['evaluation_before_classification_seconds']:.2f}/"
             f"{result['evaluation_during_classification_seconds']:.2f} seconds"
         )
-        if result.get("enumeration"):
-            enumeration = result["enumeration"]
+        if result.get("enumerated-cover"):
+            enumeration = result["enumerated-cover"]
             extra += (
                 f"; enumerated {enumeration['separation_patterns']} "
                 "separation patterns in "
@@ -508,8 +508,8 @@ def print_algorithm_result(key, result):
                 f"{enumeration['enumeration_seconds']:.2f}/"
                 f"{enumeration['cover_seconds']:.2f} seconds"
             )
-        if result.get("balanced"):
-            balanced = result["balanced"]
+        if result.get("balanced-split"):
+            balanced = result["balanced-split"]
             extra += (
                 f"; MaxSAT calls {balanced['maxsat_calls']}; "
                 f"reuses {balanced['ideal_reuses'] + balanced['matched_reuses']}"
@@ -561,8 +561,8 @@ def grouped_summary(problems):
             )
             if result.get("test_suite_size") is not None:
                 bucket["test_suite_sizes"].append(result["test_suite_size"])
-            if result.get("enumeration"):
-                enumeration = result["enumeration"]
+            if result.get("enumerated-cover"):
+                enumeration = result["enumerated-cover"]
                 bucket["enumerated_instances"].append(
                     enumeration["enumerated_instances"]
                 )
@@ -711,14 +711,14 @@ def scope_study_summary(study):
                 ),
             }
 
-    exact_key = "exact"
+    joint_cover_key = "joint-cover"
     paired_problems = [
         problem
         for problem in study.get("problems", [])
         if all(
             problem.get("scopes", {})
             .get(scope, {})
-            .get(exact_key, {})
+            .get(joint_cover_key, {})
             .get("status")
             == "completed"
             for scope in scopes
@@ -749,7 +749,7 @@ def scope_study_summary(study):
             }
     return {
         "by_scope": by_scope,
-        "paired_exact_completed_all_scopes": {
+        "paired_joint_cover_completed_all_scopes": {
             "problem_count": len(paired_problems),
             "files": [problem["file"] for problem in paired_problems],
             "algorithms": paired_algorithms,
@@ -805,7 +805,7 @@ def trace_study_summary(study):
         if all(
             problem.get("trace_lengths", {})
             .get(trace_length, {})
-            .get("exact", {})
+            .get("joint-cover", {})
             .get("status")
             == "completed"
             for trace_length in trace_lengths
@@ -813,7 +813,7 @@ def trace_study_summary(study):
     ]
     return {
         "by_trace_length": by_trace_length,
-        "paired_exact_completed_all_trace_lengths": {
+        "paired_joint_cover_completed_all_trace_lengths": {
             "problem_count": len(paired_problems),
             "files": [problem["file"] for problem in paired_problems],
         },
@@ -825,9 +825,9 @@ def online_comparison_summary(document):
 
     study = document.get("online_comparison", {})
     batch_by_file = {
-        problem["file"]: problem["algorithms"]["balanced"]
+        problem["file"]: problem["algorithms"]["balanced-split"]
         for problem in document.get("problems", [])
-        if problem.get("algorithms", {}).get("balanced", {}).get("status")
+        if problem.get("algorithms", {}).get("balanced-split", {}).get("status")
         == "completed"
     }
     completed = [
@@ -911,10 +911,11 @@ def _normalize_study_trace_length(configuration, trace_length, label):
 
 
 def ensure_online_comparison(document, timeout_seconds, trace_length=None):
-    """Initialize and normalize the paired always-online balanced study."""
+    """Initialize and normalize metadata for the paired iterative baseline."""
 
     expected = {
-        "method": "balanced",
+        "baseline_method": "iterative",
+        "paired_batch_method": "balanced-split",
         "scope": document["configuration"]["scope"],
         "temporal_trace_length": trace_length,
         "synthesis_timeout_seconds": timeout_seconds,
@@ -940,6 +941,10 @@ def ensure_online_comparison(document, timeout_seconds, trace_length=None):
             changed = True
         if old_timeout is not None and "synthesis_timeout_seconds" not in configuration:
             configuration["synthesis_timeout_seconds"] = old_timeout
+        # The legacy field conflated the baseline with its paired batch method.
+        if "method" in configuration:
+            del configuration["method"]
+            changed = True
         for key, value in expected.items():
             if configuration.get(key) != value:
                 if (
@@ -1213,19 +1218,28 @@ def _positive_int(value):
 def argument_parser():
     parser = argparse.ArgumentParser(
         description=(
-            "Evaluate balanced, recursive, exact, and enumeration-based "
-            "batch construction, the scope study, and always-online balanced "
-            "synthesis."
+            "Evaluate Arbitrary Split, Balanced Split, Joint Cover, and "
+            "Enumerated Cover batch synthesis, the scope study, and adaptive "
+            "iterative classification."
         )
     )
     parser.add_argument("--problems", type=Path, default=Path("problems"))
     parser.add_argument("--output", type=Path, default=Path("evaluation-results.json"))
-    parser.add_argument(
+    report_mode = parser.add_mutually_exclusive_group()
+    report_mode.add_argument(
         "--paper-report",
         action="store_true",
         help=(
-            "read --output and print the tables and supporting statistics "
-            "reported in the paper without running or modifying an evaluation"
+            "read --output and print the paper tables and compact supporting "
+            "summaries without running or modifying an evaluation"
+        ),
+    )
+    report_mode.add_argument(
+        "--full-report",
+        action="store_true",
+        help=(
+            "read --output and print all RQ tables, diagnostics, and pairwise "
+            "comparisons without running or modifying an evaluation"
         ),
     )
     parser.add_argument("--scope", type=int, default=3)
@@ -1823,7 +1837,7 @@ def run_online_study(args, document):
         problem
         for problem in document.get("problems", [])
         if problem["file"] in selected_paths
-        and problem.get("algorithms", {}).get("balanced", {}).get("status")
+        and problem.get("algorithms", {}).get("balanced-split", {}).get("status")
         == "completed"
     ]
     existing = {
@@ -1833,7 +1847,7 @@ def run_online_study(args, document):
         problem for problem in eligible if problem["file"] not in existing
     ]
     print(
-        "Always-online balanced comparison: "
+        "Adaptive iterative classification comparison: "
         f"{len(pending)} pending of {len(eligible)} eligible; "
         f"{args.online_timeout:g}s safety timeout.",
         flush=True,
@@ -1925,10 +1939,10 @@ def print_scope_summary(document):
                 flush=True,
             )
     paired = study.get("summary", {}).get(
-        "paired_exact_completed_all_scopes", {}
+        "paired_joint_cover_completed_all_scopes", {}
     )
     print(
-        "  exact paired subset completed at every scope: "
+        "  Joint Cover paired subset completed at every scope: "
         f"{paired.get('problem_count', 0)} problems",
         flush=True,
     )
@@ -1962,7 +1976,7 @@ def print_online_summary(document):
         return
     summary = study.get("summary", {})
     completed = summary.get("completed_configurations", 0)
-    print("\nAlways-online balanced comparison", flush=True)
+    print("\nAdaptive iterative classification comparison", flush=True)
     if not completed:
         print("  no completed configurations", flush=True)
         return
@@ -1979,18 +1993,20 @@ def print_online_summary(document):
 
 def main(argv=None):
     args = argument_parser().parse_args(argv)
-    if args.paper_report:
+    if args.paper_report or args.full_report:
+        report_label = "full" if args.full_report else "paper"
         if not args.output.exists():
-            raise SystemExit(f"cannot generate paper report: {args.output} not found")
+            raise SystemExit(f"cannot generate {report_label} report: {args.output} not found")
         try:
             document = json.loads(args.output.read_text())
         except (OSError, json.JSONDecodeError) as error:
             raise SystemExit(
-                f"cannot generate paper report from {args.output}: {error}"
+                f"cannot generate {report_label} report from {args.output}: {error}"
             ) from error
-        from evaluation_report import print_paper_report
+        from evaluation_report import print_full_report, print_paper_report
 
-        print_paper_report(document, source=args.output)
+        printer = print_full_report if args.full_report else print_paper_report
+        printer(document, source=args.output)
         return 0
     if args.scope_study_min > args.scope_study_max:
         raise SystemExit("--scope-study-min cannot exceed --scope-study-max")

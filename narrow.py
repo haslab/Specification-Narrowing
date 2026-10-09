@@ -4,11 +4,11 @@ import argparse
 from timeit import default_timer as timer
 
 from alloy import Instance, parse, print_instances, requires_trace_length
-from balanced import balanced_test_set
+from arbitrary_split import arbitrary_split_batch
+from balanced_split import balanced_split_batch
 from classification import predicate_holds
-from enumeration import enumerated_test_set
-from exact import exact_test_set
-from recursive import recursive_test_set
+from enumerated_cover import enumerated_cover_batch
+from joint_cover import joint_cover_batch
 from visualizer import (
     AdaptiveTestSession,
     NativeInstanceVisualizer,
@@ -16,10 +16,10 @@ from visualizer import (
 
 
 BATCH_ALGORITHMS = {
-    "balanced": balanced_test_set,
-    "exact": exact_test_set,
-    "recursive": recursive_test_set,
-    "enumerate": enumerated_test_set,
+    "arbitrary-split": arbitrary_split_batch,
+    "balanced-split": balanced_split_batch,
+    "joint-cover": joint_cover_batch,
+    "enumerated-cover": enumerated_cover_batch,
 }
 
 
@@ -232,13 +232,7 @@ def argument_parser():
     )
     argument_parser.add_argument(
         "algorithm",
-        choices=(
-            "balanced",
-            "recursive",
-            "exact",
-            "enumerate",
-        ),
-        metavar="{balanced,recursive,exact,enumerate}",
+        choices=tuple(BATCH_ALGORITHMS),
         help="batch-construction method",
     )
     argument_parser.add_argument("filename")

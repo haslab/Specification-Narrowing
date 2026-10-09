@@ -1,4 +1,4 @@
-"""Cardinality-minimum distinguishing-batch synthesis with Exact MaxSAT."""
+"""Joint Cover batch synthesis using a single AlloyMax optimization query."""
 
 import argparse
 from timeit import default_timer as timer
@@ -14,7 +14,9 @@ if not jpype.isJVMStarted():
 from edu.mit.csail.sdg.parser import CompUtil
 from edu.mit.csail.sdg.translator import A4Options, TranslateAlloyToKodkod
 
-def exact_test_set(content, scope, trace_length=None):
+def joint_cover_batch(content, scope, trace_length=None):
+    """Synthesize a cardinality-minimum distinguishing batch with Joint Cover."""
+
     collector = parse(content, trace_length=trace_length)
 
     model = "sig Atom {}\nabstract sig Formula {}\none sig " + ",".join(collector.predicates.keys()) + " extends Formula {}\nsig Instance {\n"
@@ -117,7 +119,7 @@ def main():
                 "trace_length is required for models using Alloy 6 temporal features"
             )
         start = timer()
-        test_set = exact_test_set(
+        test_set = joint_cover_batch(
             content,
             args.scope,
             args.trace_length,

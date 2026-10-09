@@ -8,31 +8,64 @@
 - [`narrow.py`](./narrow.py): unified command-line interface for distinguishing-batch construction.
 - [`evaluation-results.json`](./evaluation-results.json): consolidated,
   resumable evaluation data and summaries.
+- [`paper-results-report.txt`](./paper-results-report.txt): generated paper tables
+  and supporting results, including scope and trace-length sensitivity.
+- [`full-results-report.txt`](./full-results-report.txt): generated full report,
+  including per-candidate tables, diagnostics, and pairwise comparisons.
 - [`AlloyMax-1.0.2.jar`](./AlloyMax-1.0.2.jar): snapshot of AlloyMax, used to parse and execute Alloy models and commands.
-- [`paper`](./paper/): directory with the running example used in the paper, including GPT-5.2 interaction.
+- [`paper`](./paper/): manuscript and illustrative Alloy example, including the GPT-5.2 interaction used to produce its candidate specifications.
 
 # Results
 
-The evaluation uses four stable method IDs. The two tree-guided methods build an
-implicit decision tree and reuse tests across its nodes; the two cover-based
+The tool and evaluation data use the same synthesis-method IDs, matching the
+names in the paper. The two tree-guided methods build an implicit decision tree
+and reuse tests across its nodes; the two cover-based
 methods minimize the set of tests that separates every candidate pair.
 
-| Method ID | Display name | Family | Primary objective |
-|-----------|--------------|--------|-------------------|
-| `balanced` | Balanced MaxSAT | tree-guided | classification cost |
-| `recursive` | Recursive SAT | tree-guided | robust synthesis |
-| `exact` | Exact MaxSAT | cover-based | minimum cardinality |
-| `enumerate` | Separation-pattern enumeration | cover-based | minimum cardinality |
+| Tool option / result ID | Paper name | Family | Implementation |
+|-------------------------|------------|--------|----------------|
+| `arbitrary-split` | Arbitrary Split | tree-guided | [`arbitrary_split.py`](./arbitrary_split.py) |
+| `balanced-split` | Balanced Split | tree-guided | [`balanced_split.py`](./balanced_split.py) |
+| `joint-cover` | Joint Cover | cover-based | [`joint_cover.py`](./joint_cover.py) |
+| `enumerated-cover` | Enumerated Cover | cover-based | [`enumerated_cover.py`](./enumerated_cover.py) |
 
 The authoritative measurements and generated summaries are stored in
-[`evaluation-results.json`](./evaluation-results.json). At structural scope 3,
-Balanced, Recursive, Exact, and Enumeration complete 176, 196, 163, and 152 of
-the 196 static configurations, and 30, 32, 9, and 31 of the 32 temporal
-configurations, respectively. On the 151 static configurations jointly
-completed by Balanced, Recursive, and Exact, their mean batch sizes are 7.36,
-8.09, and 5.17 tests. The paper reports the paired classification,
-cardinality, synthesis-time, scope, trace-length, and always-online analyses
-derived from this file.
+[`evaluation-results.json`](./evaluation-results.json). The benchmark contains
+196 static configurations from 28 requirements with 4 to 28 candidates, and
+a small temporal replication study contains 32 configurations from eight
+requirements with 4 to 16 candidates. The default structural scope is 3, with
+maximum trace length 3 for temporal models.
+
+On the 167 static configurations completed by both tree-guided methods and at
+least one cover-based method, mean batch cardinalities are **8.54 tests for
+Arbitrary Split**, **7.69 for Balanced Split**, and **5.49 for a minimum
+cover**, certified by either completed cover-based method. Reuse reduces the
+Balanced Split batch by 42% relative to its construction tree before reuse;
+minimum covers are a further 29% smaller. On the 13 paired configurations with
+28 candidates, minimum covers average **8.69 tests**. In the temporal
+replication, minimum covers average 4.21 tests on 29 paired configurations,
+compared with 5.90 for Balanced Split.
+
+Batch cardinality is largely insensitive to the studied bounds. On the 13
+paired static configurations with 16 candidates, the mean minimum decreases
+from 5.69 tests at scope 3 to 5.54 at scope 4 and remains unchanged through
+scope 7. Increasing the bounds nevertheless raises synthesis cost.
+
+Under the 60-second complete-batch synthesis budget, Arbitrary Split,
+Balanced Split, Joint Cover, and Enumerated Cover complete 196, 176, 163, and
+152 of the 196 static configurations, and 32, 30, 9, and 31 of the 32 temporal
+configurations, respectively. On the 132 static configurations completed by
+all four methods, their median synthesis times are 1.16, 1.08, 1.15, and
+0.66 seconds in the same order.
+
+As a secondary comparison, adaptive review of Balanced Split batches and
+iterative classification both average 4.15 classifications on 176 static
+configurations, differing by less than 0.001. The batch mean is only 0.0038
+above the theoretical binary-tree lower bound. Preparing the complete batch
+requires more upfront synthesis: the corresponding median times are
+1.65 seconds for the batch and 0.82 seconds for iterative classification.
+The paper reports batch cardinality and scope sensitivity as RQ1, synthesis
+cost and scalability as RQ2, and adaptive iterative classification as RQ3.
 
 The JSON records the same method IDs together with a display name and family.
 Batch entries record `synthesis_timeout_seconds` as the total batch-synthesis
@@ -40,19 +73,62 @@ budget, while the online-study configuration records its separate traversal
 safety timeout. Post-synthesis truth-table evaluation and classification
 simulation are timed separately.
 
+The online study identifies the iterative baseline with
+`baseline_method: "iterative"` and the batch method used for the paired
+comparison with `paired_batch_method: "balanced-split"`. These are distinct
+procedures sharing the same single-test balancing objective; only the batch
+method reuses tests across branches. Existing results with the older `method`
+field are migrated automatically when the online study is resumed.
+
 # Scripts
 
-Start by installing the requirements.
+## Setup
 
+Benchmark generation and test synthesis require Python 3 and a Java
+Development Kit (JDK) discoverable by JPype. The current code has been checked
+with **Python 3.14.6, JPype 1.7.1, and Java 17.0.5** on macOS with Apple
+Silicon. Python and the JVM must use the same CPU architecture.
+
+Run the commands below from the repository root, where the bundled
+`AlloyMax-1.0.2.jar` is located. A separate Alloy Analyzer installation is not
+required. Create and activate a virtual environment, then install the Python
+dependencies:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
 ```
-pip install -r requirements.txt
+
+The activation command above applies to macOS and Linux. On Windows with
+PowerShell, use `.venv\Scripts\Activate.ps1` instead.
+
+Check Python and the Java runtime loaded by JPype, then run the included
+static example:
+
+```sh
+python3 --version
+python3 -c 'import jpype; jpype.startJVM(); print(jpype.JClass("java.lang.System").getProperty("java.version"))'
+python3 narrow.py arbitrary-split paper/courses.als 3 --simulate Spec2
 ```
+
+The last command synthesizes a complete distinguishing batch and simulates
+classification with `Spec2` as the oracle. The Java check reports the JVM
+actually used by Python, which can differ from the `java` executable on
+`PATH`. If JPype cannot locate a JVM, set `JAVA_HOME` to your JDK installation
+directory before launching Python.
+
+The graphical classifier additionally uses Tk (`tkinter`); without it,
+classification falls back to the terminal. Batch synthesis and simulation do
+not require a graphical display. Regenerating the saved reports with
+`--paper-report` or `--full-report` requires only Python's standard library,
+without Java or the synthesis dependencies.
 
 ## Data preparation
 
 Script `generate.py`, for each pair model/requirements in `dataset.json`, creates an Alloy model with alternative requirement specifications as predicates. The specifications in `dataset.json` are from a [dataset](https://zenodo.org/records/17392203) that guarantees that the alternatives are non-equivalent, as required by all four methods. Models and specifications are filtered with the same parser and bounded Alloy 6-to-5 translation used by `narrow.py`; the translated Alloy 5 is then parsed and typechecked by AlloyMax, as it is during narrowing.
 
-The script takes as arguments a range of sizes for the set of alternative specifications and the model IDs to process. `--mode static` (the default) accepts only static inputs. `--mode temporal` uses an internal positive trace bound for validation and accepts the bounded temporal subset supported by `narrow.py`; that validation bound is not embedded in the generated problem. Unsupported base models are skipped once; unsupported candidate specifications are discarded individually. If a requirement does not retain the requested number of specifications, it is skipped.
+The script takes as arguments a range of sizes for the set of alternative specifications and the model IDs to process. `--mode static` (the default) accepts only static inputs. `--mode temporal` uses an internal positive trace bound for validation and accepts the bounded temporal subset supported by `narrow.py`; that validation bound is not embedded in the generated problem. Unsupported base models are skipped once; unsupported candidate specifications are discarded individually. After filtering, a requirement is retained only if it supports the largest requested candidate count. Otherwise it is skipped entirely, including smaller sizes. All retained requirements therefore have the full requested size range, with smaller candidate sets forming prefixes of the largest set.
 
 ### Usage
 
@@ -75,7 +151,8 @@ specifications. The pre-generated models are available in
 python3 generate.py 4 28 4 x3JXgWhJ3uti5Dzxz dyj49tEp7j6aWAQQX cXPP9QBPTYgTX6WJ6
 ```
 
-For a temporal model, use:
+The temporal replication retains eight requirements supporting 16 candidates,
+producing 32 configurations across the four requested sizes:
 
 ```
 python3 generate.py --mode temporal 4 16 4 FwCGymHmbqcziisH5
@@ -84,14 +161,15 @@ python3 generate.py --mode temporal 4 16 4 FwCGymHmbqcziisH5
 ## Experiment execution
 
 `evaluation.py` can run all experiments used by the paper. The main study
-compares balanced, recursive, exact, and enumeration-based batch construction
-on every static or temporal model in `problems` at structural scope 3. The
-static scope experiment runs Balanced, Recursive, and Exact, matching the
-paper. The temporal scope and trace-length experiments run all four methods,
-including Enumeration, while independently varying structural scope and
-maximum trace length. The online comparison measures every Balanced oracle
-path on configurations completed by Balanced batch construction. Batch methods
-receive the same 60-second budget for synthesizing one complete batch; the
+compares Arbitrary Split, Balanced Split, Joint Cover, and Enumerated Cover
+batch synthesis on every static or temporal model in `problems` at structural
+scope 3. The static scope experiment runs Balanced Split, Arbitrary Split, and
+Joint Cover, matching the paper. The temporal scope and trace-length
+experiments run all four methods,
+including Enumerated Cover, while independently varying structural scope and
+maximum trace length. The online comparison measures every iterative
+classification path on configurations completed by Balanced Split batch synthesis.
+Batch methods receive the same 60-second budget for synthesizing one complete batch; the
 online tree traversal uses a 180-second safety timeout. Every candidate
 specification is used as the oracle. Because the bundled benchmark includes
 temporal problems, the main comparison requires a trace bound:
@@ -121,19 +199,57 @@ synthesis budget. For the online comparison, each oracle is charged only for
 nodes on its root-to-leaf path, and those path costs are averaged within each
 configuration.
 
-To reproduce the aggregate numbers presented in the paper from the saved raw
-entries, run:
+Two read-only reports are available, with generated snapshots included in the
+repository. For the paper tables and supporting summaries, open
+[`paper-results-report.txt`](./paper-results-report.txt) or run:
 
 ```
 python3 evaluation.py --paper-report
 ```
 
-This option is read-only: it does not run Alloy, resume an experiment, or
-modify `evaluation-results.json`. It recomputes all three result tables, their
-supporting RQ statistics, and the temporal completion, scope, trace-length, and
-online results. Pairwise values are labelled with their joint-completion
-subset rather than being taken from the cached summaries. Displayed values use
-Python's round-to-nearest formatting at the precision shown in the report.
+The focused report follows the paper's RQs:
+
+- **RQ1 — Batch cardinality:** Table 3 uses both tree methods and either
+  completed cover method, combining their certified minimum in one column.
+  Additional tables give temporal cardinalities, static batch sizes at every
+  structural scope, and temporal batch sizes at every trace-length bound.
+- **RQ2 — Synthesis cost and scalability:** Table 4 reports full-benchmark
+  completion and synthesis medians on the common all-four static subset.
+  Supporting tables give temporal completion by candidate count and synthesis
+  times and completion at every structural scope and trace-length bound.
+- **RQ3 — Adaptive iterative classification:** Two aggregate tables compare
+  batch review with the recorded iterative baseline, covering classification
+  effort, binary-tree lower bounds, and upfront synthesis costs.
+
+For all per-candidate tables, construction and failure diagnostics, results at
+every analysis bound, and pairwise comparisons, open
+[`full-results-report.txt`](./full-results-report.txt) or run:
+
+```
+python3 evaluation.py --full-report
+```
+
+Both options read `--output` (default `evaluation-results.json`) without
+running Alloy, resuming experiments, or changing the saved data. They share the
+same calculations; the full report expands the focused view. The options are
+mutually exclusive.
+
+After changing the evaluation data or reporting code, regenerate both snapshots
+from the repository root:
+
+```
+python3 evaluation.py --paper-report > paper-results-report.txt
+python3 evaluation.py --full-report > full-results-report.txt
+```
+
+Sensitivity comparisons keep the same configurations at every bound.
+Success-only diagnostic tables use each method's own completed subset and are
+labelled accordingly; `NA` marks unavailable comparisons. Iterative runtime
+medians average oracle-path times within each configuration first, and paired
+increases are medians of per-configuration differences. Supplementary pairwise
+tables identify their own joint-completion subsets. All values are recomputed
+from raw entries, with Python's round-to-nearest formatting at the precision
+shown in the report.
 
 Existing output is resumed automatically, so an interrupted evaluation does
 not repeat saved work. `--resume` can still be supplied explicitly:
@@ -179,7 +295,7 @@ of increments as the structural scope range, and both can be overridden with
 
 Use `--study main`, `--study scope`, or `--study online` to run one study
 family, and `--overwrite` to deliberately discard an existing result file and
-start over. The online study consumes completed Balanced entries from the main
+start over. The online study consumes completed Balanced Split entries from the main
 study, so run the main study first or use `--study all`.
 
 `--min-size`, `--max-size`, and `--limit` are available for shorter trial
@@ -190,11 +306,11 @@ does not leave a Python/JVM synthesis process running.
 
 The included [`paper/courses.als`](paper/courses.als) model contains six
 alternative static specifications. For example, these commands construct
-recursive and cardinality-minimum distinguishing batches at scope 3:
+distinguishing batches with Arbitrary Split and Joint Cover at scope 3:
 
 ```
-python3 narrow.py recursive paper/courses.als 3
-python3 narrow.py exact paper/courses.als 3
+python3 narrow.py arbitrary-split paper/courses.als 3
+python3 narrow.py joint-cover paper/courses.als 3
 ```
 
 The scripts also accept future-time Alloy 6 specifications. Mutable subset
@@ -207,7 +323,7 @@ Temporal models require a separate `trace-length` argument. It is an upper
 bound, so the solver may generate any lasso containing between one and that
 many states.
 
-With the Exact MaxSAT method, AlloyMax minimizes the number of generated
+With Joint Cover, AlloyMax minimizes the number of generated
 instances. Trace length is only an upper bound and is not a secondary
 optimization objective.
 
@@ -220,15 +336,15 @@ python3 narrow.py <method> <filename> <scope> [trace-length]
 Every method constructs a complete distinguishing batch before
 classification:
 
-- `balanced` (tree-guided) recursively constructs a balanced decision tree. At each node it
+- `arbitrary-split` (tree-guided) generates a complete suite using recursive
+  SAT-based partitioning and test reuse.
+- `balanced-split` (tree-guided) recursively constructs a balanced decision tree. At each node it
   first reuses a stored test if that test achieves an ideal split. Otherwise it
   synthesizes the best feasible split with AlloyMax and reuses a stored test
   when it matches that optimum; only genuinely better tests are added.
-- `recursive` (tree-guided) generates a complete suite using recursive SAT-based
-  partitioning and test reuse.
-- `exact` (cover-based) generates a complete minimum test cover with
+- `joint-cover` (cover-based) generates a complete minimum test cover with
   AlloyMax.
-- `enumerate` (cover-based) uses repeated SAT calls to enumerate every attainable
+- `enumerated-cover` (cover-based) uses repeated SAT calls to enumerate every attainable
   nontrivial separation pattern of the candidates, retains one representative
   instance per pattern, and applies an exact finite minimum test-cover
   encoding. This cover-based method is intentionally exponential. For temporal
@@ -255,7 +371,7 @@ generated test at a time and identifies the alternative specification whose
 truth values agree with the answers:
 
 ```
-python3 narrow.py balanced paper/courses.als 3 --classify
+python3 narrow.py balanced-split paper/courses.als 3 --classify
 ```
 
 Each step chooses from the fixed generated suite the unused test that most
@@ -265,7 +381,7 @@ the previous answer, restores
 eliminated specifications, and lets the classification be revised. If Tk is
 unavailable, the same ordering and backtracking are provided in the terminal.
 
-The balanced constructor defines `separated` as the relation containing
+Balanced Split defines `separated` as the relation containing
 each ordered pair of remaining predicates that disagree on the synthesized
 instance and applies AlloyMax's `maxsome separated` objective. If the instance
 is accepted by `p` candidates and rejected by `n-p`, `separated` has
@@ -277,7 +393,7 @@ ordered tests automatically, treating the named predicate as the ground
 truth. The command reports how many classifications are required to select it:
 
 ```
-python3 narrow.py balanced paper/courses.als 3 --simulate Spec2
+python3 narrow.py balanced-split paper/courses.als 3 --simulate Spec2
 ```
 
 Both interactive and simulated runs report aggregate synthesis and evaluation
@@ -311,13 +427,17 @@ The viewer uses Python's bundled Tk GUI and does not launch Alloy Analyzer or
 any background worker processes. If Tk is unavailable, it falls back to the
 terminal classifier.
 
-Exact MaxSAT and Recursive SAT are implemented in `exact.py` and
-`recursive.py`, matching the method names used by the CLI and evaluation
-data.
+Each synthesis module exposes a batch function named after its method:
+`arbitrary_split_batch`, `balanced_split_batch`, `joint_cover_batch`, and
+`enumerated_cover_batch`. The shared single-test optimization is
+`balanced_separator` in [`balanced_separator.py`](./balanced_separator.py).
+Balanced Split uses it when synthesizing a new test; the iterative baseline
+uses it at every decision node. The latter's evaluation entry point is
+`iterative_classification_path_costs` in `balanced_split.py`.
 
 Internal Alloy 5 commands explicitly increase the signed `Int` bitwidth when
 needed, so cardinality constraints such as `#State <= trace-length` cannot
-overflow. In the Exact MaxSAT meta-model the bitwidth covers the complete `Atom`
+overflow. In the Joint Cover meta-model the bitwidth covers the complete `Atom`
 bound, since each test's `State` relation is represented as an `Instance`
 field rather than as a separately scopeable signature.
 
