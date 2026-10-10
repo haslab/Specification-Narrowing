@@ -4,6 +4,7 @@ import argparse
 from timeit import default_timer as timer
 from itertools import combinations
 from alloy import int_bitwidth, parse, build_instance, print_instances, requires_trace_length
+from classification import reified_truth_vectors
 
 import jpype
 import jpype.imports
@@ -15,7 +16,7 @@ from edu.mit.csail.sdg.parser import CompUtil
 from edu.mit.csail.sdg.translator import A4Options, TranslateAlloyToKodkod
 
 def joint_cover_batch(content, scope, trace_length=None):
-    """Synthesize a cardinality-minimum distinguishing batch with Joint Cover."""
+    """Synthesize a minimum batch with each test's complete truth vector."""
 
     collector = parse(content, trace_length=trace_length)
 
@@ -79,6 +80,7 @@ def joint_cover_batch(content, scope, trace_length=None):
 
     # build formulas for instances
     instances = []
+    truth_vectors = reified_truth_vectors(world, solution, collector.predicates)
     full_value = {}
     for sig in collector.signatures:
         full_value[sig] = solution.eval(CompUtil.parseOneExpression_fromString(world, sig))
@@ -91,7 +93,9 @@ def joint_cover_batch(content, scope, trace_length=None):
             value[sig] = [[t.atom(1)] for t in full_value[sig] if t.atom(0) == id]
         for field in collector.fields:
             value[field] = [[t.atom(i) for i in range(1, t.arity())] for t in full_value[field] if t.atom(0) == id]
-        instances.append(build_instance(collector, value))
+        instances.append(build_instance(
+            collector, value, truth_vector=truth_vectors[str(id)]
+        ))
     return instances
 
 

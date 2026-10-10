@@ -34,34 +34,26 @@
 \maketitle
 
 \begin{abstract}
-Weak or ambiguous requirements can give rise to several non-equivalent formal
-specifications. A domain expert can narrow the candidates by classifying
-concrete instances or traces on which they disagree. We study the symbolic
-synthesis of complete distinguishing test batches: fixed suites that
-collectively separate every candidate pair. All tests are synthesized in
-advance of expert review, supporting asynchronous and parallel classification,
-predictable workload, and reproducible decisions. The central challenges are
-minimizing batch cardinality and scaling synthesis over an implicit symbolic
-test space.
-
-We formalize this problem and propose four synthesis methods, instantiated for
-bounded Alloy models and temporal traces. Two cover-based methods synthesize
-cardinality-minimum batches, either through joint MaxSAT optimization or by
-enumerating the different ways feasible tests divide the candidates and then
-solving an explicit minimum-cover problem over all candidate pairs. Two
-tree-guided methods recursively partition the candidates using
-feasibility-only SAT or balanced MaxSAT, reusing tests across branches.
-
-Our evaluation covers 196 static and 32 temporal configurations. On paired
-static configurations, reuse reduces balanced batch cardinality by 42\%
-relative to the unreused construction tree, while exact minimization produces
-batches a further 29\% smaller. The feasibility-only tree-guided method
-completes every configuration in the main study, whereas the exact methods
-exhibit different scalability
-characteristics, particularly for temporal models. When used for adaptive
-narrowing, balanced batches nearly attain the theoretical lower bound on mean
-classification cost, while minimum-cardinality batches incur only a small
-additional classification cost.
+Ambiguous requirements can admit several non-equivalent formal specifications.
+We study the symbolic synthesis of complete distinguishing test batches for
+specification narrowing through expert review. Synthesized upfront, these fixed
+suites of instances or traces separate every candidate pair and support
+asynchronous and parallel classification. We formalize
+batch synthesis as a candidate-pair cover problem over an implicit test space
+and develop four methods for bounded Alloy models and temporal traces. Two
+cover-based methods obtain minimum-cardinality batches through joint MaxSAT
+optimization or SAT enumeration followed by explicit minimum-cover selection.
+Two tree-guided methods use SAT or balanced MaxSAT and reuse tests across
+branches. Our evaluation covers 196 static and 32 temporal configurations.
+On paired static configurations, reuse reduces balanced batch cardinality by
+42\% relative to the unreused construction tree, and minimum covers are a
+further 29\% smaller. The SAT-based tree-guided method completes every
+main-study configuration within 0.43 seconds, while the exact methods exhibit
+different scalability profiles, particularly for temporal models. Complete
+batches also support adaptive review, with balanced batches nearly attaining the
+theoretical lower bound on mean classification cost. With modest additional
+upfront synthesis effort, these reusable suites offer competitive adaptive
+classification and eliminate synthesis delays during review.
 
 \keywords{Specification narrowing \and Symbolic test synthesis \and MaxSAT
   \and Alloy \and Temporal relational logic}
@@ -105,9 +97,9 @@ asynchronously or in parallel, or retained as a common basis for comparing
 and revisiting judgments. The batch also makes the complete review workload
 explicit upfront: its cardinality is the number of classifications required
 for full review and an upper bound for adaptive narrowing. Existing online
-narrowing approaches synthesize tests
-in an interactive session, using each classification to guide the next synthesis
-query. Complete batch synthesis must instead provide sufficient distinctions
+narrowing approaches~\cite{shriver2017end,gavran2020interactive,mendoza2026automating,prasad2026pick}
+synthesize tests in an interactive session, using each classification to guide
+the next synthesis query. Complete batch synthesis must instead provide sufficient distinctions
 for every possible intended candidate before any answers are available.
 
 The central challenge is to synthesize a small complete batch at reasonable
@@ -129,14 +121,13 @@ cover-based method, \enumeratedcover{}, uses repeated SAT queries to
 enumerate the different ways feasible tests divide the candidates, retaining
 one representative test for each
 division, and then solves the resulting explicit minimum-cover problem with
-MaxSAT. Both methods return a cardinality-minimum batch whenever they
+MaxSAT. Both methods return a minimum-cardinality batch whenever they
 complete, but differ in the
 symbolic models they solve and the amount of information they materialize.
 
 The \emph{tree-guided} methods adapt the recursive candidate-partitioning
-principle of existing adaptive, interactive narrowing
-approaches~\cite{shriver2017end,gavran2020interactive,mendoza2026automating}
-to complete batch synthesis. We develop two symbolic synthesis methods based
+principle of these interactive narrowing approaches to complete batch synthesis.
+We develop two symbolic synthesis methods based
 on this principle: \arbitrarysplit{} uses SAT to obtain any feasible split
 and avoids optimization, whereas \balancedsplit{} uses MaxSAT to seek the
 most balanced feasible split.
@@ -159,7 +150,7 @@ and temporal bounds.
 Our main benchmark comprises 196 static configurations derived from 28
 requirements in three Alloy models, with candidate counts ranging from 4 to
 28. A small temporal replication study adds 32 configurations from eight
-requirements in one dynamic model with temporal properties, with 4 to 16 candidates. On 167 static
+requirements in one dynamic model with temporal properties, with 4 to 16 candidates. On 168 static
 configurations completed by both tree-guided methods and at least one exact
 method, test reuse reduces balanced batch cardinality by 42\% relative to the
 unreused construction tree, while minimum batches are a further 29\% smaller.
@@ -168,21 +159,14 @@ study. The exact methods have different completion profiles: on the temporal
 benchmark, \enumeratedcover{} completes 31 of 32 configurations, compared with 9
 for \jointcover{}.
 
-A complete batch can also support adaptive narrowing. After each
-classification, an interactive tool can select an unused test from the
-previously synthesized complete batch that most evenly divides the remaining
-candidates and stop when at most one remains. Our secondary analysis compares complete batches with ideal adaptive approaches, and shows
-that balanced batches lie
-within 0.004 classifications on average of the unrestricted binary-tree lower
-bound on the completed static configurations. Even an optimal online synthesis
-policy could therefore save at most this amount on average, and
-minimum-cardinality batches incur only a small additional classification
-cost. On these benchmarks, complete batches thus remain competitive in the
-number of expert classifications. Preparing the complete batch requires
-more upfront synthesis: on 176 paired static configurations, median synthesis
-time is 1.65 seconds for the complete batch, compared with 0.82 seconds for
-the mean online path. This additional effort moves synthesis before expert
-review, potentially reducing interaction lag, and produces a complete, reusable suite.
+Complete batches also support adaptive review: a tool selects tests from the
+batch as answers arrive and stops when one candidate remains. Our secondary
+analysis shows that balanced batches nearly attain the theoretical minimum
+number of classifications on average, while minimum-cardinality batches need
+only slightly more. On completed static configurations, synthesizing the full
+balanced batch costs a median of 0.16 seconds more than generating tests during
+review. This modest upfront effort pays off by providing a complete, reusable suite
+and eliminating synthesis delays during classification.
 
 This paper contributes:
 \begin{itemize}
@@ -274,7 +258,7 @@ of which candidate is intended.
 
 \begin{table}[t]
 \centering
-\caption{A cardinality-minimum distinguishing batch for the six candidate
+\caption{A minimum-cardinality distinguishing batch for the six candidate
 specifications. A check mark denotes satisfaction.}
 \label{tab:batch-matrix}
 \small
@@ -311,8 +295,8 @@ this concrete scenario without reading the predicates.
 \paragraph{Batch cardinality.}
 Two binary tests encode at most four different acceptance patterns, so
 distinguishing six candidates requires at least three tests. The batch in
-Table~\ref{tab:batch-matrix} attains this bound and is therefore
-cardinality-minimum.
+Table~\ref{tab:batch-matrix} attains this bound and therefore has minimum
+cardinality.
 Table~\ref{tab:example-cardinality} compares the complete batches produced by
 the four proposed synthesis methods on this example at scope~3. A complete binary
 construction tree for six candidates has five internal test positions.
@@ -355,10 +339,6 @@ available. A secondary question in the evaluation is how the adaptive use of com
 \section{Distinguishing Test Batches}
 \label{sec:problem}
 
-We now formalize complete distinguishing batches and minimum-cardinality synthesis
-independently of Alloy. Section~\ref{sec:synthesis} then presents the four symbolic synthesis
-methods, and Section~\ref{sec:implementation} instantiates them for Alloy.
-
 \subsection{Candidates and Feasible Tests}
 
 Let $F=\{\phi_1,\ldots,\phi_N\}$ be a finite set of candidate specifications
@@ -378,21 +358,16 @@ be distinguished by test classification at the chosen bounds.
 A \emph{complete distinguishing batch} for $F$ is a finite set
 $T\subseteq\mathcal I$ such that, for every two distinct candidates
 $\phi_i,\phi_j\in F$, some $I\in T$ satisfies exactly one of them. A
-distinguishing batch is \emph{cardinality-minimal} if no smaller such batch
+distinguishing batch is \emph{minimum-cardinality} if no smaller such batch
 exists.
 \end{definition}
 
 Equivalently, the candidates have distinct acceptance columns across $T$, as
-illustrated in Table~\ref{tab:batch-matrix}. Completeness is a property of the
-batch and candidate set, independent of which candidate is intended or which
-judgments the expert will provide.
+illustrated in Table~\ref{tab:batch-matrix}. Completeness depends only on the batch and candidate set, independently of
+the intended candidate and expert judgments.
 
-Let
-\[
-  U=\{\{\phi_i,\phi_j\}\mid 1\leq i<j\leq N\}
-\]
-be the candidate pairs, and associate each feasible test with the pairs it
-distinguishes,
+Let $U=\{\{\phi_i,\phi_j\}\mid 1\leq i<j\leq N\}$ be the candidate pairs.
+Each feasible test distinguishes
 \[
   D(I)=\{\{\phi_i,\phi_j\}\in U\mid
           I\models\phi_i \Longleftrightarrow I\not\models\phi_j\}.
@@ -407,14 +382,13 @@ synthesis therefore solves
 Given an explicit pool of tests, this is the classical NP-hard
 \emph{Minimum Test Set} problem~\cite{GareyJohnson,moret1985minimizing}. Here, however,
 the test domain is implicit: synthesis must discover feasible tests as well
-as select a minimum cover. Even under finite bounds, the domain may admit
-exponentially many distinct ways of separating the candidates.
+as select a minimum cover. Even finite bounds may admit exponentially many candidate divisions.
 
 \subsection{Cardinality Bounds and Synthesis Objectives}
 
 \begin{proposition}
 \label{prop:batch-bounds}
-For a pairwise distinguishable set of $N>1$ candidates, every cardinality-minimal batch
+For a pairwise distinguishable set of $N>1$ candidates, every minimum-cardinality batch
 $T^*$ satisfies
 \[
   \lceil\log_2N\rceil\leq |T^*|\leq N-1.
@@ -519,8 +493,7 @@ satisfied soft formulas subject to all hard formulas. This interface suffices
 for every procedure below and is independent of the source language.
 We specify each query by its set of hard constraints and, for MaxSAT, its
 set of soft constraints.
-The encodings below assume $N>1$; with at most one candidate, an empty batch
-suffices.
+We assume $N>1$; otherwise, the empty batch suffices.
 
 \subsection{Cover-Based Batch Synthesis}
 \label{sec:cover-based-synthesis}
@@ -557,7 +530,7 @@ The soft constraints are
 Maximizing their number minimizes the selected test positions in one MaxSAT
 query. Equation~\eqref{eq:joint-separation} ensures completeness. Conversely,
 Proposition~\ref{prop:batch-bounds} guarantees that every minimum batch fits
-within the $K$ positions, so an optimum yields a cardinality-minimum batch.
+within the $K$ positions, so an optimum yields a minimum-cardinality batch.
 Before auxiliary variables for CNF conversion, the encoding uses $K$ copies
 of $X$, $KN$ validity variables, $K$ selection variables, and $O(KN^2)$
 separation occurrences. Replicating the bounded test encoding can therefore
@@ -592,9 +565,8 @@ hard-constraint set
 \end{equation}
 Each satisfying assignment gives a representative of a previously unseen
 nontrivial division. Its blocking condition excludes every test with the
-same pair coverage, including complementary acceptance vectors. When the
-query becomes unsatisfiable, one representative has been retained for every
-feasible nontrivial division.
+same pair coverage, including complementary acceptance vectors. Unsatisfiability certifies that all feasible nontrivial divisions are
+represented.
 
 Let $M$ be the number of retained representatives, and introduce a selection
 variable $y_r$ for each one. The explicit cover encoding has the
@@ -613,7 +585,7 @@ A MaxSAT optimum minimizes the selected representatives. Every test with
 nonempty pair coverage can be replaced by its representative, and tests
 covering no pair can be discarded.
 These operations preserve completeness without increasing cardinality, so
-this optimum is also a minimum over the implicit test domain.
+the optimum is also a minimum over the implicit test domain.
 
 The method uses $M+1$ SAT enumeration queries, including the final
 unsatisfiable query, followed by one MaxSAT
@@ -692,14 +664,8 @@ earliest such test without a synthesis query. Otherwise, a MaxSAT query
 establishes the best feasible split. If a stored test matches that optimum,
 we reuse the earliest such test and discard the new witness; otherwise the
 new test is stored. Every added test is evaluated against all of $F$, making
-its acceptance values available for reuse across branches. Ideal reuse saves
-both a synthesis query and a stored test; certifying a non-ideal reuse still
-incurs the MaxSAT query while saving a stored test.
-
-All four procedures depend only on $B$ and the candidate encodings
-$\widehat{\phi}_i$. Section~\ref{sec:implementation} describes their bounded
-Alloy instantiation; the solver-level account is independent of the SAT or
-MaxSAT implementation.
+its acceptance values available for reuse across branches. Ideal reuse saves a query and a stored test; non-ideal reuse saves only a
+stored test.
 
 \section{Evaluation}
 \label{sec:evaluation}
@@ -716,7 +682,7 @@ batch cost, and how do the methods scale with candidate count and analysis
 bounds?
 
 \textbf{RQ3 (Adaptive iterative classification):} How do complete batches
-compare with iterative synthesis in classification effort and synthesis cost?
+compare with iterative synthesis in classification effort and synthesis time?
 
 \subsection{Implementation and Experimental Setup}
 \label{sec:implementation}
@@ -725,9 +691,9 @@ compare with iterative synthesis in classification effort and synthesis cost?
 We implemented the four methods in a Python prototype using
 AlloyMax~1.0.2~\cite{zhang2021alloymax}, with SAT4J for SAT and SAT4JMax for
 partial MaxSAT. Given an Alloy domain model, candidate predicates, and analysis
-bounds, the prototype returns tests as Alloy commands. Candidate acceptance is
-checked by fixing each test's signatures and relations and solving the
-corresponding predicate. Temporal formulas are encoded as bounded
+bounds, the prototype returns tests as Alloy commands together with their
+candidate truth vectors, obtained directly from the solver solutions.
+Temporal formulas are encoded as bounded
 lassos~\cite{biere1999symbolic}; the prototype currently excludes past operators
 and mutable top-level signatures.
 
@@ -749,10 +715,12 @@ rather than treating configurations as independent samples.
 
 The default structural scope is~3, with maximum trace length~3 for temporal
 models. Each complete batch has a 60-second synthesis budget. Experiments ran
-on an Apple M5 machine with 24~GB of memory and macOS Tahoe. We measure
-stored-test cardinality and wall-clock synthesis time; acceptance evaluation of
-the completed batch and review simulation occur afterward and are excluded
-from the budget. Cardinalities are averaged across configurations. A minimum
+serially on an Apple M5 machine with 24~GB of memory and macOS Tahoe, using
+Python~3.14.6, JPype~1.7.1, and Java~17.0.5. We measure
+stored-test cardinality and wall-clock time for complete batch synthesis.
+Review simulation is excluded from synthesis time. RQ1 and RQ2 retain
+successful syntheses; RQ3 requires completed review simulation.
+Cardinalities are averaged across configurations. A minimum
 cardinality is certified by either cover-based method that completes. Runtime
 comparisons report medians on configurations completed by every method shown;
 separately labelled completion diagnostics use each method's own successful runs.
@@ -762,7 +730,9 @@ tests it satisfies. Batch review follows the greedy adaptive policy from
 Section~\ref{sec:problem} and stops when only the oracle remains.
 Classification means weight oracle paths equally. The iterative baseline uses
 the same balanced splitting objective but synthesizes a new test after each
-answer. We evaluate all oracle paths by traversing its decision tree once,
+answer. We compare upfront synthesis of the complete batch with cumulative
+iterative synthesis along each oracle path. We evaluate all iterative oracle
+paths by traversing the decision tree once,
 charging each oracle only for synthesis and partitioning along its own path.
 Iterative path times are averaged per configuration before computing paired
 runtime medians.
@@ -779,7 +749,7 @@ are available in the replication package.
 \subsection{RQ1: Batch Cardinality}
 \label{sec:rq1}
 
-Table~\ref{tab:batch-cardinality} compares batch sizes on the 167 static
+Table~\ref{tab:batch-cardinality} compares batch sizes on the 168 static
 configurations completed by both tree-guided methods and at least one
 cover-based method. Both cover-based methods certify the same minimum
 cardinality whenever they complete, so their results share the minimum
@@ -804,33 +774,33 @@ $N$ & Configs & $N-1$ & \methodheading{Arbitrary}{Split} &
 16 & 28 & 15 &  9.82 &  8.93 & 6.00 \\
 20 & 25 & 19 & 11.24 & 10.28 & 6.96 \\
 24 & 17 & 23 & 12.94 & 11.41 & 7.82 \\
-28 & 13 & 27 & 14.23 & 12.00 & 8.69 \\
+28 & 14 & 27 & 14.21 & 12.07 & 8.71 \\
 \midrule
-All & 167 & 13.32 & 8.54 & 7.69 & 5.49 \\
+All & 168 & 13.40 & 8.57 & 7.72 & 5.51 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \paragraph{Reuse and minimum covers.}
-The corresponding construction trees have 13.32 internal nodes on average.
-Test reuse reduces the stored batches to 8.54 tests for \arbitrarysplit{} and
-7.69 for \balancedsplit{}, reductions of 36\% and 42\%, respectively.
-Minimum covers contain 5.49 tests on average, a further 29\% reduction
-relative to \balancedsplit{}. On the 13 paired configurations with 28
+The corresponding construction trees have 13.40 internal nodes on average.
+Test reuse reduces the stored batches to 8.57 tests for \arbitrarysplit{} and
+7.72 for \balancedsplit{}, reductions of 36\% and 42\%, respectively.
+Minimum covers contain 5.51 tests on average, a further 29\% reduction
+relative to \balancedsplit{}. On the 14 paired configurations with 28
 candidates, fewer than nine tests on average suffice to distinguish every
 candidate pair. Complete batch synthesis thus produces a compact suite for
 full review even at the largest candidate count studied.
 
-The small temporal replication shows the same reduction: on 29 paired
-configurations, minimum batches average 4.21 tests compared with 5.90 for
+The small temporal replication shows the same reduction: on 30 paired
+configurations, minimum batches average 4.27 tests compared with 6.00 for
 \balancedsplit{}, again 29\% smaller.
 
 \paragraph{Sensitivity to analysis bounds.}
-For $N=16$, the same 21 configurations have both tree-guided batches and a
+For $N=16$, the same 23 configurations have both tree-guided batches and a
 certified minimum at every scope from~3 to~7. Across these scopes,
-\balancedsplit{} averages 8.67--9.10 tests and \arbitrarysplit{} averages
-9.71--10.43. The mean minimum, certified by either cover method,
-decreases from 5.95 tests at scope~3 to 5.86 at
+\balancedsplit{} averages 8.74--9.13 tests and \arbitrarysplit{} averages
+9.78--10.35. The mean minimum, certified by either cover method,
+decreases from 5.96 tests at scope~3 to 5.83 at
 scope~4 and remains unchanged through scope~7. These comparisons hold the
 candidate sets and completed subset fixed.
 In the paired static scope study, scope~3 already achieves nearly the same
@@ -848,14 +818,14 @@ tests. RQ2 examines the synthesis cost of increasing these bounds.
 \label{sec:rq2}
 
 Table~\ref{tab:synthesis-cost} reports completion at the default bounds and
-median synthesis times on the 132 static configurations completed by all four
+median synthesis times on the 133 static configurations completed by all four
 methods. Completion counts cover the full benchmark; the paired medians
 describe successful runs on a common subset.
 
 \begin{table}[t]
 \centering
 \caption{Completion at default bounds under the 60-second budget. The final
-row gives median synthesis times on the same 132 static configurations
+row gives median synthesis times on the same 133 static configurations
 completed by all four methods.}
 \label{tab:synthesis-cost}
 \small
@@ -870,32 +840,33 @@ $N$/benchmark & Configs & \methodheading{Arbitrary}{Split} &
 8  & 28 & 28 & 28 & 28 & 28 \\
 12 & 28 & 28 & 28 & 26 & 28 \\
 16 & 28 & 28 & 28 & 24 & 24 \\
-20 & 28 & 28 & 27 & 24 & 19 \\
-24 & 28 & 28 & 20 & 19 & 14 \\
-28 & 28 & 28 & 17 & 14 & 11 \\
+20 & 28 & 28 & 27 & 24 & 20 \\
+24 & 28 & 28 & 21 & 19 & 14 \\
+28 & 28 & 28 & 17 & 15 & 11 \\
 \midrule
-Static total & 196 & 196 & 176 & 163 & 152 \\
-Temporal total & 32 & 32 & 30 & 9 & 31 \\
+Static total & 196 & 196 & 177 & 164 & 153 \\
+Temporal total & 32 & 32 & 31 & 9 & 31 \\
 \midrule
-\multicolumn{2}{l}{Static median (s)} & 1.16 & 1.08 & 1.15 & 0.66 \\
+\multicolumn{2}{l}{Static median (s)} & 0.18 & 0.42 & 1.06 & 0.57 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \paragraph{Completion and candidate count.}
 \arbitrarysplit{} completed all 228 static and temporal configurations at
-the default bounds, each in at most 8.90~s. \balancedsplit{} completed all
+the default bounds, each in at most 0.43~s. \balancedsplit{} completed all
 static configurations through $N=16$, but only 17 of 28 at $N=28$. The
 cover-based methods also become less robust as candidate count increases:
-at $N=28$, \jointcover{} completed 14 configurations and
+at $N=28$, \jointcover{} completed 15 configurations and
 \enumeratedcover{} completed 11. Avoiding optimization therefore provides
 the most reliable complete batches in this benchmark, at the cost of the
 larger cardinalities reported in RQ1.
 
 \paragraph{Cost of minimum covers.}
 On the common static subset, all four median synthesis times are below
-1.2~s, and \enumeratedcover{} has the lowest median, 0.66~s. Minimum batch
-cardinality thus need not require longer synthesis when all methods succeed.
+1.1~s. \arbitrarysplit{} is fastest at 0.18~s, followed by
+\balancedsplit{} at 0.42~s. Minimum covers remain inexpensive on this subset:
+\enumeratedcover{} takes 0.57~s, compared with 1.06~s for \jointcover{}.
 However, these medians do not capture the harder configurations that time
 out. \enumeratedcover{} discovers a median of 33 distinct candidate
 divisions (maximum 278) on its completed static runs; the reported time
@@ -909,62 +880,67 @@ of replicating the bounded-lasso encoding up to $N-1$ times in
 \jointcover{}, whereas each enumeration query encodes only one test.
 The temporal sets also contain at most 16 candidates, so this small study
 does not isolate the effect of temporal encoding from candidate count.
-It suggests that enumeration is attractive when individual test encodings
-are expensive and candidate sets are moderate.
+Enumeration therefore appears attractive for expensive test encodings and
+moderate candidate sets.
 
 \paragraph{Sensitivity to analysis bounds.}
 On the 11 static configurations with $N=16$ completed by all four methods
 at every scope, increasing scope from~3 to~7 raises median synthesis time
-from 1.26 to 6.52~s for \arbitrarysplit{}, from 1.73 to 6.25~s for
-\balancedsplit{}, from 2.02 to 23.31~s for \jointcover{}, and from
-2.00 to 3.37~s for \enumeratedcover{}. Across all 28 configurations,
-\jointcover{} completion falls from 24 to 13 and \enumeratedcover{} from
-24 to 20; at scope~7, \arbitrarysplit{} completes all 28 configurations
+from 0.18 to 0.28~s for \arbitrarysplit{}, from 0.58 to 1.49~s for
+\balancedsplit{}, from 1.50 to 18.79~s for \jointcover{}, and from
+1.47 to 3.33~s for \enumeratedcover{}. Across all 28 configurations,
+\jointcover{} completion falls from 24 to 14 and \enumeratedcover{} from
+24 to 21; at scope~7, \arbitrarysplit{} completes all 28 configurations
 and \balancedsplit{} completes 26.
 
 Increasing temporal trace length from~3 to~7 also raises synthesis time:
 on the seven configurations completed by all four methods at every bound
-with $N=4$, \arbitrarysplit{} rises
-from 0.41 to 20.17~s and \enumeratedcover{} from 0.20 to 0.54~s.
-For temporal structural scope, no configuration completes with all four
-methods at every bound: \arbitrarysplit{} completes none at scopes~6--7,
-and \enumeratedcover{} completes none at scope~7. Timeouts and heap
-exhaustion thus arise even with four candidates; the replication package
-reports completion and each method's successful-run timings separately.
-The static scope and temporal trace-length studies therefore show that
-larger bounds can substantially increase synthesis effort with little
+with $N=4$, \balancedsplit{} rises from 0.89 to 2.67~s and
+\jointcover{} from 1.05 to 3.43~s, while \arbitrarysplit{} and
+\enumeratedcover{} remain below 0.4~s.
+For temporal structural scope, six configurations complete all four methods
+at every bound. On this common subset, increasing scope from~3 to~7 raises
+median synthesis time from 0.13 to 0.22~s for \arbitrarysplit{}, from
+0.86 to 8.25~s for \balancedsplit{}, from 0.97 to 13.46~s for
+\jointcover{}, and from 0.20 to 0.38~s for \enumeratedcover{}.
+At scope~7, \arbitrarysplit{} and \enumeratedcover{} complete all eight
+configurations, compared with seven for \balancedsplit{} and six for
+\jointcover{}. Larger bounds can therefore substantially increase synthesis
+effort, particularly for MaxSAT over symbolic test encodings, with little
 reduction in complete batch cardinality.
 
 \subsection{RQ3: Adaptive Iterative Classification}
 \label{sec:rq3}
 
 \paragraph{Classification effort.}
-On the 176 static configurations completed by \balancedsplit{} (2,616
+On the 177 static configurations completed by \balancedsplit{} (2,640
 oracle paths), adaptive batch review and the iterative baseline both average
-4.15 classifications, differing by less than 0.001. For $N$ equally weighted
+4.16 classifications, differing by less than 0.001. For $N$ equally weighted
 candidates, $B(N)=k+2-2^{k+1}/N$, with $k=\lfloor\log_2N\rfloor$, is the
 minimum mean depth of a binary decision tree, even if arbitrary binary
 questions are available. The batch mean is only 0.0038 above this
 path-weighted lower bound. On this subset, even an optimal iterative policy
 could therefore save fewer than 0.004 classifications on average.
 
-On the 132 static configurations completed by all four methods (1,632
+On the 133 static configurations completed by all four methods (1,652
 oracle paths), the other three methods require only 0.031--0.035 more
-classifications than the iterative baseline's mean of 3.890, despite their
+classifications than the iterative baseline's mean of 3.896, despite their
 different batch cardinalities. In the small temporal replication, the
-\balancedsplit{} batch and iterative baseline have the same mean of 3.45
-classifications across 288 oracle paths from 30 configurations. Complete
+\balancedsplit{} batch and iterative baseline have the same mean of 3.48
+classifications across 304 oracle paths from 31 configurations. Complete
 batches, including minimum covers, thus remain competitive with adaptive
 iterative classification on these completed benchmarks.
 
 \paragraph{Upfront synthesis cost.}
-Median synthesis is 1.65~s for the complete \balancedsplit{} batch and
-0.82~s for iterative synthesis on the 176 static configurations. Iterative
-times average oracle-path costs within each configuration; the median
-paired increase for complete synthesis is 0.65~s. On the 30 temporal
-configurations, the corresponding medians are 3.86 and 2.47~s.
+Median synthesis time is 0.61~s for the complete \balancedsplit{} batch, compared with
+0.43~s for cumulative iterative synthesis along an oracle path on the 177
+static configurations. Iterative times average oracle-path costs within each
+configuration; the median paired increase for complete batch synthesis is
+0.16~s. On the 31 temporal
+configurations, the corresponding medians are 3.11 and 2.29~s,
+with a median paired increase of 0.82~s.
 These comparisons exclude the batch timeouts reported in RQ2.
-The extra effort delivers a complete reusable suite before review, with
+We stress that this extra effort delivers a complete reusable suite before review, with
 adaptive presentation requiring no further synthesis.
 
 \subsection{Threats to Validity}
@@ -977,8 +953,7 @@ measures the number of tests; expert comprehension and review time remain
 unmeasured. RQ3 uses one balanced iterative baseline under the same encoding,
 weights candidates equally as oracles, and assumes that the intended
 candidate is present and answers are error-free. Synthesis times depend on
-the encoding, solver versions, and hardware, and exclude acceptance evaluation
-of the completed batch. Paired cardinality and runtime summaries condition
+the encoding, solver versions, and hardware. Paired cardinality and runtime summaries condition
 on completion and can favor easier configurations. We use one toolchain,
 retain common comparison subsets, and report completion separately.
 
@@ -988,12 +963,9 @@ retain common comparison subsets, and report completion separately.
 \paragraph{Minimum test sets and suite synthesis.}
 Given an explicit finite test pool, Minimum Test Set selects a smallest subset
 that distinguishes objects by their test
-outcomes~\cite{GareyJohnson,moret1985minimizing}. Our candidate-pair cover
-objective has this form, with candidates as objects and acceptance as test
-outcomes. The symbolic setting adds the problem of discovering feasible tests.
-\jointcover{} represents test generation and cover selection in the same
-MaxSAT problem, while \enumeratedcover{} first materializes the different
-feasible candidate divisions and then selects a minimum cover.
+outcomes~\cite{GareyJohnson,moret1985minimizing}. Our cover-based methods extend
+this objective to an implicit symbolic test space, where feasible tests must
+also be discovered.
 
 Related suite optimization targets program coverage. Test-suite reduction
 retains existing tests that preserve a chosen coverage
@@ -1067,9 +1039,9 @@ across branches. Complete batches provide a fixed suite before expert review,
 make the full review workload explicit upfront, and support independent or
 parallel classification.
 
-On 167 paired static configurations, reuse reduces \balancedsplit{} batch
+On 168 paired static configurations, reuse reduces \balancedsplit{} batch
 cardinality by 42\%, and minimum covers are a further 29\% smaller. With 28
-candidates, minimum covers average 8.69 tests on the 13 paired configurations.
+candidates, minimum covers average 8.71 tests on the 14 paired configurations.
 In the paired static scope study, scope~3 already yields nearly the same
 minimum cardinality as larger scopes, which require substantially more
 synthesis effort. \arbitrarysplit{} completes all 196 static and 32 temporal
@@ -1094,10 +1066,12 @@ authors' own. The authors thoroughly reviewed the resulting code, analyses,
 and text and take full responsibility for the final work.
 
 \section*{Data Availability}
-An anonymized replication package containing the implementation, benchmark models,
-evaluation data (including more detailed results), and reproduction instructions will be submitted for voluntary artifact review. 
-Upon acceptance, the complete package will be publicly archived on Zenodo, and the 
-implementation will be released as open source on GitHub.
+An anonymized replication package containing the implementation, benchmark
+models, complete evaluation results, and reproduction instructions is available
+for review at \url{http://anonymous.github}.
+If the paper is accepted, the package will be submitted for artifact evaluation
+and publicly archived on Zenodo. The implementation will also be released as
+open source on GitHub.
 
 \bibliographystyle{splncs04}
 \bibliography{bibliography}

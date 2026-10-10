@@ -30,48 +30,86 @@ methods minimize the set of tests that separates every candidate pair.
 | `enumerated-cover` | Enumerated Cover | cover-based | [`enumerated_cover.py`](./enumerated_cover.py) |
 
 The authoritative measurements and generated summaries are stored in
-[`evaluation-results.json`](./evaluation-results.json). The benchmark contains
+[`evaluation-results.json`](./evaluation-results.json). All measurements use
+the implementation that retains solver-derived candidate truth vectors as part
+of batch synthesis. The benchmark contains
 196 static configurations from 28 requirements with 4 to 28 candidates, and
 a small temporal replication study contains 32 configurations from eight
 requirements with 4 to 16 candidates. The default structural scope is 3, with
 maximum trace length 3 for temporal models.
 
-On the 167 static configurations completed by both tree-guided methods and at
-least one cover-based method, mean batch cardinalities are **8.54 tests for
-Arbitrary Split**, **7.69 for Balanced Split**, and **5.49 for a minimum
+On the 168 static configurations completed by both tree-guided methods and at
+least one cover-based method, mean batch cardinalities are **8.57 tests for
+Arbitrary Split**, **7.72 for Balanced Split**, and **5.51 for a minimum
 cover**, certified by either completed cover-based method. Reuse reduces the
 Balanced Split batch by 42% relative to its construction tree before reuse;
-minimum covers are a further 29% smaller. On the 13 paired configurations with
-28 candidates, minimum covers average **8.69 tests**. In the temporal
-replication, minimum covers average 4.21 tests on 29 paired configurations,
-compared with 5.90 for Balanced Split.
+minimum covers are a further 29% smaller. On the 14 paired configurations with
+28 candidates, minimum covers average **8.71 tests**. In the temporal
+replication, minimum covers average 4.27 tests on 30 paired configurations,
+compared with 6.00 for Balanced Split.
 
-Batch cardinality is largely insensitive to the studied bounds. On the 21
+Batch cardinality is largely insensitive to the studied bounds. On the 23
 paired static configurations with 16 candidates, the mean minimum decreases
-from 5.95 tests at scope 3 to 5.86 at scope 4 and remains unchanged through
+from 5.96 tests at scope 3 to 5.83 at scope 4 and remains unchanged through
 scope 7. Increasing the bounds nevertheless raises synthesis cost.
 
 Under the 60-second complete-batch synthesis budget, Arbitrary Split,
-Balanced Split, Joint Cover, and Enumerated Cover complete 196, 176, 163, and
-152 of the 196 static configurations, and 32, 30, 9, and 31 of the 32 temporal
-configurations, respectively. On the 132 static configurations completed by
-all four methods, their median synthesis times are 1.16, 1.08, 1.15, and
-0.66 seconds in the same order.
+Balanced Split, Joint Cover, and Enumerated Cover complete 196, 177, 164, and
+153 of the 196 static configurations, and 32, 31, 9, and 31 of the 32 temporal
+configurations, respectively. On the 133 static configurations completed by
+all four methods, their median synthesis times are 0.18, 0.42, 1.06, and
+0.57 seconds in the same order. Arbitrary Split completes every default-bound
+batch within 0.43 seconds. In the temporal structural-scope study, Arbitrary
+Split and Enumerated Cover complete every configuration at every bound;
+Balanced Split and Joint Cover complete seven and six of eight at scope 7.
 
 As a secondary comparison, adaptive review of Balanced Split batches and
-iterative classification both average 4.15 classifications on 176 static
+iterative classification both average 4.16 classifications on 177 static
 configurations, differing by less than 0.001. The batch mean is only 0.0038
-above the theoretical binary-tree lower bound. Preparing the complete batch
-requires more upfront synthesis: the corresponding median times are
-1.65 seconds for the batch and 0.82 seconds for iterative classification.
+above the theoretical binary-tree lower bound. Synthesizing the complete batch
+requires slightly more upfront effort: the corresponding median synthesis
+times are 0.61 seconds for the batch
+and 0.43 seconds for cumulative synthesis along an iterative oracle path.
+The median paired increase is
+0.16 seconds. On the 31 paired temporal configurations, both procedures
+average 3.48 classifications; synthesis takes 3.11 seconds for the batch
+and 2.29 seconds for the mean iterative oracle path, with a median paired increase
+of 0.82 seconds.
 The paper reports batch cardinality and scope sensitivity as RQ1, synthesis
 cost and scalability as RQ2, and adaptive iterative classification as RQ3.
 
 The JSON records the same method IDs together with a display name and family.
 Batch entries record `synthesis_timeout_seconds` as the total batch-synthesis
 budget, while the online-study configuration records its separate traversal
-safety timeout. Post-synthesis truth-table evaluation and classification
-simulation are timed separately.
+safety timeout. Synthesis now returns each test with its candidate truth vector,
+computed directly from the solver solution within `synthesis_seconds`.
+The experiment runner and interactive tool use the returned predictions without
+further solver calls. New records identify this with
+`truth_vector_source: "synthesis"` and use format version 8.
+
+RQ2 and RQ3 use the complete synthesis time. RQ3 compares it with iterative
+generation and partitioning along each oracle path, averaging those paths per
+configuration before computing paired runtime medians. Review simulation is
+excluded from synthesis time. Reports give one upfront batch synthesis time.
+The report reader also supports older measurements while preserving their
+recorded preparation cost and provenance.
+
+Batch records distinguish `synthesis_status` from `evaluation_status`; the
+overall `status` covers synthesis, prediction validation, and review simulation.
+If a later stage fails, `failure_stage` identifies it and the successful batch's
+size and synthesis time are retained. RQ1 and RQ2 use successful synthesis;
+RQ3 requires completed review simulation. Missing predictions are reported as
+an error instead of being recomputed through SAT queries.
+
+All studies were rerun serially on 9 and 10 October 2026 on an Apple M5 with 24 GB
+of memory, using the toolchain below. `execution_environment` records the
+machine, runtimes, and SHA-256 hashes of the source files and benchmarks;
+`evaluation_run` records the run dates and execution policy. The fresh run
+contains 1,616 batch syntheses (1,416 completed and 200 timed out) and 208
+completed iterative comparisons. No earlier measurements were reused; only
+default-bound results from this run are shared between studies. Coverage,
+source and benchmark hashes, predictions, cached summaries, and minimum-cover
+certificates were checked before promoting the data.
 
 The online study identifies the iterative baseline with
 `baseline_method: "iterative"` and the batch method used for the paired
@@ -191,9 +229,10 @@ per-problem statistics, and summaries grouped by candidate count are saved
 incrementally to `evaluation-results.json`. Online node and path timings retain
 higher precision. Results include complete batch sizes, per-node and
 per-oracle online measurements, the structural-scope study, and the independent
-temporal trace-length study. Truth-table evaluation and classification
-simulation occur after construction and are timed separately from the
-synthesis budget. For the online comparison, each oracle is charged only for
+temporal trace-length study. Candidate truth vectors are computed during
+synthesis and included in its budget; subsequent prediction validation and
+classification simulation are excluded from synthesis time. For the online
+comparison, each oracle is charged only for
 nodes on its root-to-leaf path, and those path costs are averaged within each
 configuration.
 
@@ -219,7 +258,8 @@ The focused report follows the paper's RQs:
   times and completion at every structural scope and trace-length bound.
 - **RQ3 — Adaptive iterative classification:** Two aggregate tables compare
   batch review with the recorded iterative baseline, covering classification
-  effort, binary-tree lower bounds, and upfront synthesis costs.
+  effort, binary-tree lower bounds, and upfront batch synthesis versus
+  cumulative iterative synthesis along an oracle path.
 
 For all per-candidate tables, construction and failure diagnostics, results at
 every analysis bound, and pairwise comparisons, open
@@ -404,9 +444,10 @@ truth. The command reports how many classifications are required to select it:
 python3 narrow.py balanced-split paper/courses.als 3 --simulate Spec2
 ```
 
-Both interactive and simulated runs report aggregate synthesis and evaluation
-time. Evaluation is divided into the post-synthesis construction of the truth
-table and the cached ordering/filtering work performed during classification.
+Both interactive and simulated runs report synthesis time, including each
+test's candidate predictions. Ordering and filtering during classification
+use cached lookups. Tests must carry their synthesized predictions; missing
+predictions produce an error without issuing new SAT queries.
 
 `--classify` and `--simulate` are mutually exclusive.
 
@@ -437,10 +478,31 @@ terminal classifier.
 
 Each synthesis module exposes a batch function named after its method:
 `arbitrary_split_batch`, `balanced_split_batch`, `joint_cover_batch`, and
-`enumerated_cover_batch`. The shared single-test optimization is
+`enumerated_cover_batch`. Each returns a list of `Instance` objects with a
+`truth_vector` dictionary mapping every original candidate name to its Boolean
+prediction on that test. These predictions are specific to the candidates
+supplied during synthesis; expert classifications are collected separately.
+For example:
+
+```python
+from arbitrary_split import arbitrary_split_batch
+
+content = open("paper/courses.als").read()
+batch = arbitrary_split_batch(content, 3)
+print(batch[0].truth_vector)  # Candidate names mapped to Boolean predictions.
+```
+
+Arbitrary Split evaluates the predicates on each SAT solution and uses cached
+answers for partitioning and reuse. Balanced Split reads the current candidates'
+answers from `valid` and directly evaluates other original candidates on the
+same solution. Joint Cover extracts its complete `valid` relation. Enumerated
+Cover retains the vectors already used to identify separation patterns.
+
+The shared single-test optimization is
 `balanced_separator` in [`balanced_separator.py`](./balanced_separator.py).
 Balanced Split uses it when synthesizing a new test; the iterative baseline
-uses it at every decision node. The latter's evaluation entry point is
+uses it at every decision node, extracting predictions only for the remaining
+candidates. The latter's evaluation entry point is
 `iterative_classification_path_costs` in `balanced_split.py`.
 
 Internal Alloy 5 commands explicitly increase the signed `Int` bitwidth when

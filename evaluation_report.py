@@ -51,15 +51,21 @@ def _result(problem, method):
     return problem.get("algorithms", {}).get(method, {})
 
 
-def _completed(problem, method):
-    return _result(problem, method).get("status") == "completed"
+def _status(result, synthesis=False):
+    if synthesis:
+        return result.get("synthesis_status", result.get("status", "missing"))
+    return result.get("status", "missing")
 
 
-def _joint(problems, methods):
+def _completed(problem, method, synthesis=False):
+    return _status(_result(problem, method), synthesis) == "completed"
+
+
+def _joint(problems, methods, synthesis=False):
     return [
         problem
         for problem in problems
-        if all(_completed(problem, method) for method in methods)
+        if all(_completed(problem, method, synthesis) for method in methods)
     ]
 
 
@@ -85,6 +91,23 @@ def _suite_mean(problems, method):
 
 def _time_median(problems, method):
     return _median(_result(problem, method).get("synthesis_seconds") for problem in problems)
+
+
+def batch_preparation_seconds(result):
+    """Upfront batch synthesis time, preserving the cost of historical records.
+
+    Current synthesis returns all candidate predictions within its measured
+    runtime. Older records charged their computation separately; include that
+    recorded cost when reading them, without exposing separate report columns.
+    """
+
+    synthesis = result.get("synthesis_seconds")
+    if result.get("truth_vector_source") == "synthesis":
+        return synthesis
+    evaluation = result.get("evaluation_before_classification_seconds")
+    if synthesis is None or evaluation is None:
+        return None
+    return synthesis + evaluation
 
 
 def _path_count(problems, method):
@@ -194,7 +217,7 @@ def _minimum_cardinality(problem):
     sizes = {
         _result(problem, method)["test_suite_size"]
         for method in COVER_METHODS
-        if _completed(problem, method)
+        if _completed(problem, method, synthesis=True)
     }
     if len(sizes) > 1:
         raise ValueError(
@@ -214,7 +237,7 @@ def _cardinality_report(problems):
 
     def summarize(subset, size):
         paired = [
-            problem for problem in _joint(subset, TREE_METHODS)
+            problem for problem in _joint(subset, TREE_METHODS, synthesis=True)
             if certified[problem["file"]] is not None
         ]
         unreused = _mean(problem["candidate_count"] - 1 for problem in paired)
@@ -232,8 +255,8 @@ def _cardinality_report(problems):
                 suites["balanced-split"], suites["minimum"]
             ),
             "minimum_sources": dict(Counter(
-                "both" if all(_completed(problem, method) for method in COVER_METHODS)
-                else next(method for method in COVER_METHODS if _completed(problem, method))
+                "both" if all(_completed(problem, method, synthesis=True) for method in COVER_METHODS)
+                else next(method for method in COVER_METHODS if _completed(problem, method, synthesis=True))
                 for problem in paired
             )),
             "files": [problem["file"] for problem in paired],
@@ -243,18 +266,23 @@ def _cardinality_report(problems):
     return {"rows": rows, "summary": rows[-1]}
 
 
-def _completion(problems, result_for=_result):
+def _completion(problems, result_for=_result, synthesis=False):
     return {
         method: {
             "completed": sum(
-                result_for(problem, method).get("status") == "completed"
+                _status(result_for(problem, method), synthesis) == "completed"
                 for problem in problems
             ),
             "total": len(problems),
             "statuses": dict(Counter(
-                result_for(problem, method).get("status", "missing")
+                _status(result_for(problem, method), synthesis)
                 for problem in problems
             )),
+            "post_synthesis_errors": sum(
+                _status(result_for(problem, method), True) == "completed"
+                and result_for(problem, method).get("status") != "completed"
+                for problem in problems
+            ),
         }
         for method in METHODS
     }
@@ -262,23 +290,23 @@ def _completion(problems, result_for=_result):
 
 def _synthesis_report(problems):
     def summarize(subset, size):
-        paired = _joint(subset, METHODS)
+        paired = _joint(subset, METHODS, synthesis=True)
         return {
             "candidate_count": size,
             "configurations": len(subset),
-            "completion": _completion(subset),
+            "completion": _completion(subset, synthesis=True),
             "paired_configurations": len(paired),
             "synthesis_median": {
                 method: _time_median(paired, method) for method in METHODS
             },
             "synthesis_median_completed": {
-                method: _time_median(_joint(subset, (method,)), method)
+                method: _time_median(_joint(subset, (method,), synthesis=True), method)
                 for method in METHODS
             },
             "synthesis_maximum_completed": {
                 method: max(
                     (_result(problem, method)["synthesis_seconds"]
-                     for problem in _joint(subset, (method,))),
+                     for problem in _joint(subset, (method,), synthesis=True)),
                     default=None,
                 )
                 for method in METHODS
@@ -319,7 +347,7 @@ def _sensitivity_report(
     paired = [
         problem for problem in problems
         if bounds and methods and all(
-            result_for(problem, bound, method).get("status") == "completed"
+            _status(result_for(problem, bound, method), synthesis=True) == "completed"
             for bound in bounds for method in methods
         )
     ]
@@ -329,7 +357,8 @@ def _sensitivity_report(
             "bound": bound,
             "paired_configurations": len(paired),
             "completion": _completion(
-                problems, lambda problem, method: result_for(problem, bound, method)
+                problems, lambda problem, method: result_for(problem, bound, method),
+                synthesis=True,
             ),
             "suite_mean": {},
             "classification_mean": {},
@@ -341,7 +370,7 @@ def _sensitivity_report(
             paired_results = [result_for(problem, bound, method) for problem in paired]
             completed = [
                 result_for(problem, bound, method) for problem in problems
-                if result_for(problem, bound, method).get("status") == "completed"
+                if _status(result_for(problem, bound, method), synthesis=True) == "completed"
             ]
             row["suite_mean"][method] = _mean(
                 result.get("test_suite_size") for result in paired_results
@@ -411,17 +440,23 @@ def _iterative_report(document, temporal, methods):
                 bounds.append(binary_tree_lower_bound(problem["candidate_count"]))
         means = {method: _mean(values) for method, values in counts.items()}
         bound = _mean(bounds)
+        timed = [
+            (problem, online) for problem, online in paired
+            if all(batch_preparation_seconds(_result(problem, method)) is not None
+                   for method in methods)
+        ]
         online_means = [
             statistics.mean(online["path_synthesis_seconds"].values())
-            for _, online in paired
+            for _, online in timed
         ]
         batch_seconds = {
-            method: [_result(problem, method)["synthesis_seconds"] for problem, _ in paired]
+            method: [batch_preparation_seconds(_result(problem, method)) for problem, _ in timed]
             for method in methods
         }
         return {
             "candidate_count": size,
             "configurations": len(paired),
+            "runtime_configurations": len(timed),
             "oracle_paths": len(bounds),
             "classification_mean": means,
             "bound": bound,
@@ -434,7 +469,7 @@ def _iterative_report(document, temporal, methods):
                 else means[method] - means["iterative"]
                 for method in methods
             },
-            "batch_synthesis_median": {
+            "batch_preparation_median": {
                 method: _median(values) for method, values in batch_seconds.items()
             },
             "iterative_synthesis_median": _median(online_means),
@@ -459,13 +494,13 @@ def _iterative_report(document, temporal, methods):
 
 
 def _construction_details(problems):
-    balanced = _joint(problems, ("balanced-split",))
+    balanced = _joint(problems, ("balanced-split",), synthesis=True)
     details = [_result(problem, "balanced-split").get("balanced-split", {}) for problem in balanced]
-    joint = {problem["file"] for problem in _joint(problems, ("joint-cover",))}
-    enumerated = {problem["file"] for problem in _joint(problems, ("enumerated-cover",))}
+    joint = {problem["file"] for problem in _joint(problems, ("joint-cover",), synthesis=True)}
+    enumerated = {problem["file"] for problem in _joint(problems, ("enumerated-cover",), synthesis=True)}
     patterns = [
         _result(problem, "enumerated-cover").get("enumerated-cover", {}).get("separation_patterns")
-        for problem in _joint(problems, ("enumerated-cover",))
+        for problem in _joint(problems, ("enumerated-cover",), synthesis=True)
     ]
     return {
         "balanced_tree_nodes_mean": _mean(detail.get("tree_nodes") for detail in details),
@@ -500,6 +535,11 @@ def build_paper_report(document):
         "format_version": document.get("format_version"),
         "updated_at": document.get("updated_at"),
         "configuration": document.get("configuration", {}),
+        "legacy_runtime_measurements": any(
+            result.get("synthesis_seconds") is not None
+            and result.get("truth_vector_source") != "synthesis"
+            for problem in main for result in problem.get("algorithms", {}).values()
+        ),
         "benchmark": {
             kind: {
                 "configurations": len(problems),
@@ -678,7 +718,7 @@ def _print_sensitivity_costs(title, study):
     if study["rows"] and not study["paired_all_bounds"]:
         print("  No common completed subset across all bounds; paired sizes and times are NA.")
     _table(f"Additional table: {title}, completion and success-only diagnostics",
-           [study["bound_label"], "Method", "Completed/total", "Timeout", "Error", "Partial", "Missing", "Mean size", "Median s"], [
+           [study["bound_label"], "Method", "Synthesized/total", "Timeout", "Error", "Partial", "Missing", "Mean size", "Median s"], [
         [row["bound"], METHOD_LABELS[m],
          f"{row['completion'][m]['completed']}/{row['completion'][m]['total']}",
          *(row["completion"][m]["statuses"].get(status, 0) for status in ("timeout", "error", "partial", "missing")),
@@ -699,12 +739,12 @@ def _print_iterative(title, report):
          _fmt(row["classification_mean"]["iterative"], 6)]
         for row in report["rows"]
     ])
-    _table(f"Additional table: {title}, upfront synthesis (s)", [
+    _table(f"Additional table: {title}, synthesis time (s)", [
         "N", "Configs", *(METHOD_ABBREVIATIONS[m] for m in methods), "Iterative",
         *(f"Delta {METHOD_ABBREVIATIONS[m]}" for m in methods)
     ], [
-        [row["candidate_count"], row["configurations"],
-         *(_fmt(row["batch_synthesis_median"][m]) for m in methods),
+        [row["candidate_count"], row["runtime_configurations"],
+         *(_fmt(row["batch_preparation_median"][m]) for m in methods),
          _fmt(row["iterative_synthesis_median"]),
          *(_fmt(row["paired_difference_median"][m]) for m in methods)]
         for row in report["rows"]
@@ -715,14 +755,16 @@ def _print_iterative(title, report):
     ], [
         [METHOD_LABELS[m], _fmt(summary["difference_from_iterative"][m], 6),
          _fmt(summary["excess_over_bound"][m], 6),
-         f"{summary['iterative_cheaper'][m]}/{summary['configurations']}"]
+         f"{summary['iterative_cheaper'][m]}/{summary['runtime_configurations']}"]
         for m in methods
     ])
     print(
         "  Classification means and bounds weight shared oracle paths equally. "
-        "Iterative times average paths within each configuration before taking medians; "
+        "Batch times cover upfront synthesis of the complete suite; iterative times "
+        "are cumulative synthesis along oracle paths, averaged within each configuration before taking medians; "
         "Delta columns are medians of paired batch-minus-iterative differences."
     )
+    print("  Runtime comparisons require recorded batch synthesis time for every method shown; review simulation is excluded.")
 
 
 def _print_header(report, source, title):
@@ -731,6 +773,8 @@ def _print_header(report, source, title):
     if source is not None:
         print(f"Source: {source}")
     print(f"Format version: {report['format_version']}; updated: {report['updated_at'] or 'unknown'}")
+    if report["legacy_runtime_measurements"]:
+        print("Runtime provenance: these measurements precede the truth-vector optimization; a fresh run is needed to assess the current implementation.")
     for kind, benchmark in report["benchmark"].items():
         print(
             f"{kind.title()} benchmark: {benchmark['configurations']} configurations, "
@@ -834,6 +878,7 @@ def print_paper_report(document, source: Path | None = None):
     )
 
     print("\nRQ2: Synthesis Cost and Scalability")
+    print("Completion and paired times concern batch synthesis.")
     rq2 = report["rq2"]
     _print_paper_synthesis_table(rq2)
     _print_temporal_completion(rq2["temporal"])
@@ -864,7 +909,7 @@ def print_paper_report(document, source: Path | None = None):
                      for row in temporal_scope["rows"] for m in temporal_scope["methods"])
         print(
             f"  Temporal structural-scope study: {temporal_scope['paired_all_bounds']} "
-            f"common configurations across all bounds; {timeouts} timeouts and {errors} solver errors."
+            f"common configurations across all bounds; synthesis timeouts: {timeouts}; synthesis errors: {errors}."
         )
 
     print("\nRQ3: Adaptive Iterative Classification")
@@ -882,14 +927,15 @@ def print_paper_report(document, source: Path | None = None):
         for label, row in comparisons
     ])
     print("  Path-weighted means; -- marks a batch method outside the comparison subset.")
-    _table("Additional table: paired upfront synthesis, median seconds", [
-        "Benchmark", "Configs", "BS batch", "Iterative", "Paired increase"
+    _table("Additional table: paired synthesis time, median seconds", [
+        "Benchmark", "Configs", "Balanced Split", "Iterative", "Paired increase"
     ], [
-        [kind.title(), row["configurations"], _fmt(row["batch_synthesis_median"]["balanced-split"]),
+        [kind.title(), row["runtime_configurations"],
+         _fmt(row["batch_preparation_median"]["balanced-split"]),
          _fmt(row["iterative_synthesis_median"]), _fmt(row["paired_difference_median"]["balanced-split"])]
         for kind in ("static", "temporal") for row in [report["rq3"][kind]["summary"]]
     ])
-    print("  Iterative times average paths within each configuration; increases are medians of paired differences.")
+    print("  Batch times cover upfront synthesis of the complete suite. Iterative times are cumulative synthesis along oracle paths, including generation and partitioning, averaged within each configuration; increases are medians of paired differences. Review simulation is excluded.")
     print(
         "  Static BS batch classification excess over the lower bound: "
         f"{_fmt(report['rq3']['static']['summary']['excess_over_bound']['balanced-split'], 4)}."
@@ -914,6 +960,7 @@ def print_full_report(document, source: Path | None = None):
     )
 
     print("\nRQ2: Synthesis Cost and Scalability")
+    print("Completion and paired times concern batch synthesis.")
     rq2 = report["rq2"]
     static = rq2["static"]
     temporal = rq2["temporal"]

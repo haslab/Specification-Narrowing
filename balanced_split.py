@@ -27,7 +27,7 @@ def balanced_split_batch(
     scope,
     trace_length=None,
     statistics=None,
-    generate=balanced_separator,
+    generate=None,
     evaluate=predicate_holds,
 ):
     """Synthesize a complete batch with Balanced Split and cross-branch reuse.
@@ -36,6 +36,7 @@ def balanced_split_batch(
     achieves the information-theoretic optimum ``ceil(|C| / 2)``. Otherwise a
     MaxSAT query establishes the best feasible split. If a stored test matches
     that split, it is reused and the newly synthesized test is discarded.
+    Returned tests retain predictions for every original candidate.
     """
 
     collector = parse(content, trace_length=trace_length)
@@ -52,6 +53,12 @@ def balanced_split_batch(
                 }
             )
         return []
+
+    if generate is None:
+        def generate(collector, candidates, scope):
+            return balanced_separator(
+                collector, candidates, scope, truth_predicates=predicates
+            )
 
     instances = []
     truth_tables = []

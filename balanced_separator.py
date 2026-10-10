@@ -3,6 +3,7 @@
 from itertools import combinations
 
 from alloy import build_instance, int_bitwidth
+from classification import reified_truth_vectors
 
 import jpype
 import jpype.imports
@@ -14,7 +15,9 @@ from edu.mit.csail.sdg.parser import CompUtil
 from edu.mit.csail.sdg.translator import A4Options, TranslateAlloyToKodkod
 
 
-def _instance_from_solution(collector, world, solution, instance_atom=None):
+def _instance_from_solution(
+    collector, world, solution, instance_atom=None, truth_vector=None
+):
     value = {}
     for signature in collector.signatures:
         tuples = solution.eval(
@@ -41,7 +44,32 @@ def _instance_from_solution(collector, world, solution, instance_atom=None):
             for tuple_ in tuples
             if instance_atom is None or tuple_.atom(0) == instance_atom
         ]
-    return build_instance(collector, value)
+    return build_instance(collector, value, truth_vector=truth_vector)
+
+
+def _solution_truth_vector(
+    collector, world, solution, instance_atom, candidates, truth_predicates
+):
+    """Read encoded answers and evaluate any other requested candidates.
+
+    The separator encodes only the current candidates in ``valid``. Batch
+    synthesis also needs the original candidates for cross-branch reuse. Bind
+    the original relation names to the single reified instance and evaluate
+    their bodies directly on this solution, without changing the solver query.
+    """
+
+    truths = reified_truth_vectors(world, solution, candidates)[str(instance_atom)]
+    missing = [predicate for predicate in truth_predicates if predicate not in truths]
+    if missing:
+        relations = list(collector.signatures) + list(collector.fields)
+        bindings = ", ".join(f"{name} = Instance.{name}" for name in relations)
+        for predicate in missing:
+            formula = "{\n" + collector.predicates[predicate] + "\n}"
+            expression = f"let {bindings} | {formula}" if bindings else formula
+            truths[predicate] = bool(solution.eval(
+                CompUtil.parseOneExpression_fromString(world, expression)
+            ))
+    return truths
 
 
 def _balanced_separator_model(collector, candidates, scope):
@@ -100,8 +128,12 @@ def _balanced_separator_model(collector, candidates, scope):
     return analysis
 
 
-def balanced_separator(collector, candidates, scope):
-    """Generate a test maximizing the number of separated candidate pairs."""
+def balanced_separator(collector, candidates, scope, truth_predicates=None):
+    """Generate a balanced test with predictions for the requested candidates.
+
+    By default only the current candidates are evaluated. Batch synthesis can
+    request the full original set for cross-branch reuse and later review.
+    """
 
     if len(candidates) < 2:
         return None
@@ -124,9 +156,18 @@ def balanced_separator(collector, candidates, scope):
         CompUtil.parseOneExpression_fromString(world, "Instance")
     )
     instance_atom = next(iter(instance_tuples)).atom(0)
+    truth_vector = _solution_truth_vector(
+        collector,
+        world,
+        solution,
+        instance_atom,
+        candidates,
+        candidates if truth_predicates is None else truth_predicates,
+    )
     return _instance_from_solution(
         collector,
         world,
         solution,
         instance_atom=instance_atom,
+        truth_vector=truth_vector,
     )

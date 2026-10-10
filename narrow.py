@@ -62,7 +62,7 @@ def _read_classification(test_number, can_go_back, input_fn=input):
 
 
 def _classification_evaluator(collector, instances, structural_scope):
-    """Evaluate the fixed suite once so adaptive ordering is instantaneous."""
+    """Expose synthesized truth vectors to adaptive presentation."""
 
     truth_table = [
         {
@@ -290,15 +290,11 @@ def main():
     print(f"// Generated {len(test_set)} test cases")
     print(f"// Synthesis time: {end - start} seconds")
     if args.classify or args.simulate is not None:
-        print("// Evaluating generated tests against all candidates...", flush=True)
-        evaluation_start = timer()
         evaluator = _classification_evaluator(
             collector,
             test_set,
             args.scope,
         )
-        evaluation_end = timer()
-        evaluation_before = evaluation_end - evaluation_start
         if args.simulate is not None:
             session = AdaptiveTestSession(
                 list(collector.predicates),
@@ -309,14 +305,6 @@ def main():
             print(
                 f"// Simulated classifications required for {args.simulate}: "
                 f"{classifications}"
-            )
-            print(
-                "// Evaluation time before classification: "
-                f"{evaluation_before} seconds"
-            )
-            print(
-                "// Evaluation time during classification: "
-                f"{fixed_classification_evaluation_seconds(session)} seconds"
             )
         else:
             session = AdaptiveTestSession(
@@ -336,14 +324,6 @@ def main():
                     args.scope,
                 )
             _print_classification_result(collector, remaining)
-            print(
-                "// Evaluation time before classification: "
-                f"{evaluation_before} seconds"
-            )
-            print(
-                "// Evaluation time during classification: "
-                f"{fixed_classification_evaluation_seconds(session)} seconds"
-            )
     else:
         print_instances(test_set, args.scope, collector)
 

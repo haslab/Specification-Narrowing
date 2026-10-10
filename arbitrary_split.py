@@ -3,6 +3,7 @@
 import sys
 from timeit import default_timer as timer
 from alloy import parse, build_instance, command_scope, print_instances, requires_trace_length
+from classification import solution_truth_vector
 
 import jpype
 import jpype.imports
@@ -14,18 +15,18 @@ from edu.mit.csail.sdg.parser import CompUtil
 from edu.mit.csail.sdg.translator import A4Options, TranslateAlloyToKodkod
 
 def arbitrary_split_batch(content, scope, trace_length=None):
-    """Synthesize a complete distinguishing batch with Arbitrary Split."""
+    """Synthesize a complete batch, retaining each test's full truth vector."""
 
     collector = parse(content, trace_length=trace_length)
     model_content = collector.content
     scope_clause = command_scope(collector, scope)
 
-    predicates = list(collector.predicates)
+    all_predicates = list(collector.predicates)
 
-    if len(predicates) < 2:
+    if len(all_predicates) < 2:
         return []
 
-    todo = [predicates]
+    todo = [all_predicates]
     instances = []
 
     while todo:
@@ -33,14 +34,8 @@ def arbitrary_split_batch(content, scope, trace_length=None):
         formula = "{" + " or ".join(predicates) + "} and { not {" + " and ".join(predicates) + "} }"
         # check if any previous instance can be reused
         for inst in instances:
-            command = f"run {{ {{ {inst} }} and {{ {formula} }} }} {scope_clause}\n"
-            model = command + "\n" + model_content
-            world = CompUtil.parseEverything_fromString(None,model)
-            command = world.getAllCommands()[0]
-            options = A4Options()
-            options.solver = A4Options.SatSolver.SAT4J
-            solution = TranslateAlloyToKodkod.execute_command(None, world.getAllReachableSigs(), command, options)
-            if solution.satisfiable():
+            answers = [inst.truth_vector[predicate] for predicate in predicates]
+            if any(answers) and not all(answers):
                 instance = inst
                 break
         else:
@@ -64,24 +59,18 @@ def arbitrary_split_batch(content, scope, trace_length=None):
             for field in collector.fields:
                 tuples = solution.eval(CompUtil.parseOneExpression_fromString(world, field))
                 value[field] = [[t.atom(i) for i in range(t.arity())] for t in tuples]
-            instance = build_instance(collector, value)
+            truths = solution_truth_vector(world, solution, all_predicates)
+            instance = build_instance(collector, value, truth_vector=truths)
             instances.append(instance)
 
         # split predicates into positive and negative sets
         pos = []
         neg = []
         for pred in predicates:
-            command = f"check {{ {{ {instance} }} implies {{ {pred} }} }} {scope_clause}\n"
-            model = command + "\n" + model_content
-            world = CompUtil.parseEverything_fromString(None,model)
-            command = world.getAllCommands()[0]
-            options = A4Options()
-            options.solver = A4Options.SatSolver.SAT4J
-            solution = TranslateAlloyToKodkod.execute_command(None, world.getAllReachableSigs(), command, options)
-            if solution.satisfiable():
-                neg.append(pred)
-            else:
+            if instance.truth_vector[pred]:
                 pos.append(pred)
+            else:
+                neg.append(pred)
         if len(pos) > 1:
             todo.append(pos)
         if len(neg) > 1:

@@ -1033,12 +1033,17 @@ def command_scope(collector: Collector, structural_scope: int) -> str:
 
 @dataclass(frozen=True)
 class Instance:
-    """A solver constraint plus data used by textual and graphical views."""
+    """A concrete test, its views, and predictions of the synthesis candidates.
+
+    ``truth_vector`` maps the original candidate names to their Boolean answers
+    on this test. It records candidate predictions, not expert classifications.
+    """
 
     alloy5: str
     alloy6_body: Optional[str] = None
     trace_length: Optional[int] = None
     relations: Optional[dict[str, tuple[tuple[str, ...], ...]]] = None
+    truth_vector: Optional[dict[str, bool]] = None
 
     def __str__(self) -> str:
         # Narrowing queries are submitted to AlloyMax/Alloy 5.
@@ -1186,7 +1191,11 @@ def _alloy6_instance(collector: Collector, value: dict[str, list[list[object]]])
     return "\n".join(lines), len(states)
 
 
-def build_instance(collector: Collector, value: dict[str, list[list[object]]]) -> Instance:
+def build_instance(
+    collector: Collector,
+    value: dict[str, list[list[object]]],
+    truth_vector: Optional[dict[str, bool]] = None,
+) -> Instance:
     atoms = set()
     for sig in collector.toplevel:
         for tuple_ in value[sig]:
@@ -1211,8 +1220,8 @@ def build_instance(collector: Collector, value: dict[str, list[list[object]]]) -
     }
     if collector.temporal:
         alloy6_body, trace_length = _alloy6_instance(collector, value)
-        return Instance(instance, alloy6_body, trace_length, relations)
-    return Instance(instance, relations=relations)
+        return Instance(instance, alloy6_body, trace_length, relations, truth_vector)
+    return Instance(instance, relations=relations, truth_vector=truth_vector)
 
 
 def print_instances(instances: list[str], scope: int, collector: Optional[Collector] = None) -> None:

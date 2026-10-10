@@ -9,6 +9,7 @@ from alloy import (
     int_bitwidth,
     parse,
 )
+from classification import solution_truth_vector
 
 import jpype
 import jpype.imports
@@ -20,7 +21,7 @@ from edu.mit.csail.sdg.parser import CompUtil
 from edu.mit.csail.sdg.translator import A4Options, TranslateAlloyToKodkod
 
 
-def _instance_from_solution(collector, world, solution):
+def _instance_from_solution(collector, world, solution, truth_vector=None):
     value = {}
     for signature in collector.signatures:
         tuples = solution.eval(
@@ -38,7 +39,7 @@ def _instance_from_solution(collector, world, solution):
             [tuple_.atom(index) for index in range(tuple_.arity())]
             for tuple_ in tuples
         ]
-    return build_instance(collector, value)
+    return build_instance(collector, value, truth_vector=truth_vector)
 
 
 def _coverage_mask(truths, pair_bits):
@@ -139,6 +140,7 @@ def enumerated_cover_batch(content, scope, trace_length=None, statistics=None):
     pattern, including its complementary truth vector.  Exhausting these
     patterns gives the complete finite set needed for exact test cover without
     enumerating structurally distinct instances that behave identically.
+    Selected tests retain the truth vectors obtained during enumeration.
     """
 
     statistics = statistics if statistics is not None else {}
@@ -175,10 +177,6 @@ def enumerated_cover_batch(content, scope, trace_length=None, statistics=None):
         )
         world = CompUtil.parseEverything_fromString(None, analysis)
         command = world.getAllCommands()[0]
-        predicate_expressions = [
-            CompUtil.parseOneExpression_fromString(world, predicate)
-            for predicate in predicates
-        ]
         solution = TranslateAlloyToKodkod.execute_command(
             None,
             world.getAllReachableSigs(),
@@ -189,10 +187,8 @@ def enumerated_cover_batch(content, scope, trace_length=None, statistics=None):
         if not solution.satisfiable():
             break
         pattern_witnesses += 1
-        truths = tuple(
-            bool(solution.eval(expression))
-            for expression in predicate_expressions
-        )
+        truth_vector = solution_truth_vector(world, solution, predicates)
+        truths = tuple(truth_vector[predicate] for predicate in predicates)
         coverage = _coverage_mask(truths, pair_bits)
         if not coverage or coverage in representatives:
             raise RuntimeError(
@@ -202,6 +198,7 @@ def enumerated_cover_batch(content, scope, trace_length=None, statistics=None):
             collector,
             world,
             solution,
+            truth_vector=truth_vector,
         )
         blocked_patterns.append(_pattern_constraint(predicates, truths))
         if pattern_witnesses <= 10 or pattern_witnesses % 100 == 0:

@@ -26,6 +26,8 @@ import sys
 from timeit import default_timer as timer
 from typing import Optional
 
+from evaluation_report import batch_preparation_seconds
+
 
 ALGORITHMS = ("balanced-split", "arbitrary-split", "joint-cover", "enumerated-cover")
 SCOPE_STUDY_ALGORITHMS = ALGORITHMS
@@ -49,7 +51,7 @@ METHOD_METADATA = {
         "family": "cover-based",
     },
 }
-CURRENT_FORMAT_VERSION = 7
+CURRENT_FORMAT_VERSION = 8
 ALLOYMAX_VERSION = "1.0.2"
 DEFAULT_ONLINE_TIMEOUT_SECONDS = 180.0
 RESULT_PREFIX = "__SPEC_NARROWING_RESULT__"
@@ -145,13 +147,14 @@ def _worker_server(
                     )
                 else:
                     strategy_arguments = (content, scope, trace_length)
-                instances = [
-                    instance.alloy5 for instance in strategy(*strategy_arguments)
-                ]
+                batch = strategy(*strategy_arguments)
+                instances = [instance.alloy5 for instance in batch]
+                truth_table = [instance.truth_vector for instance in batch]
             response = {
                 "status": "completed",
                 "synthesis_seconds": timer() - start,
                 "instances": instances,
+                "truth_table": truth_table,
             }
             if messages.getvalue().strip():
                 response["messages"] = messages.getvalue().strip()
@@ -372,7 +375,6 @@ def evaluate_batch(
     algorithm,
     scope,
     timeout_seconds,
-    predicate_holds,
     trace_length=None,
 ):
     predicates = list(collector.predicates)
@@ -387,7 +389,13 @@ def evaluate_batch(
     result = {
         "algorithm": algorithm,
         "status": synthesis["status"],
+        "synthesis_status": synthesis["status"],
+        "evaluation_status": "not_run",
         "synthesis_timeout_seconds": timeout_seconds,
+        "classifications": {predicate: None for predicate in predicates},
+        "classification_stats": None,
+        "completed_oracles": 0,
+        "total_oracles": len(predicates),
     }
     if collector.temporal:
         result["trace_length"] = collector.trace_length
@@ -399,35 +407,45 @@ def evaluate_batch(
                 if key not in {"status", "timeout_seconds"}
             }
         )
-        result["classifications"] = {predicate: None for predicate in predicates}
-        result["classification_stats"] = None
-        result["completed_oracles"] = 0
-        result["total_oracles"] = len(predicates)
+        result["failure_stage"] = "synthesis"
         return result
 
     instances = synthesis["instances"]
-    evaluation_start = timer()
-    truth_table = [
-        {
-            predicate: predicate_holds(collector, instance, predicate, scope)
-            for predicate in predicates
-        }
-        for instance in instances
-    ]
-    evaluation_before = timer() - evaluation_start
-    classification_start = timer()
+    # Retain successful synthesis even if later table handling or review fails.
+    result.update({
+        "test_suite_size": len(instances),
+        "synthesis_seconds": round(synthesis["synthesis_seconds"], 2),
+    })
+    if synthesis.get("messages"):
+        result["messages"] = synthesis["messages"]
+    for method in ("enumerated-cover", "balanced-split"):
+        if synthesis.get(method) is not None:
+            details = dict(synthesis[method])
+            for key in ("enumeration_seconds", "cover_seconds"):
+                if details.get(key) is not None:
+                    details[key] = round(details[key], 2)
+            result[method] = details
+    try:
+        truth_table = synthesis.get("truth_table")
+        if not isinstance(truth_table, list) or len(truth_table) != len(instances) or any(
+            not isinstance(row, dict)
+            or any(type(row.get(predicate)) is not bool for predicate in predicates)
+            for row in truth_table
+        ):
+            raise ValueError("synthesis returned incomplete candidate predictions")
+        result["truth_vector_source"] = "synthesis"
+    except Exception as error:
+        result.update({
+            "status": "error",
+            "evaluation_status": "error",
+            "failure_stage": "truth_vector_validation",
+            "error": f"{type(error).__name__}: {error}",
+        })
+        return result
+    result["evaluation_status"] = "completed"
     counts, errors = fixed_classification_counts(predicates, truth_table)
-    evaluation_during = timer() - classification_start
     result.update(
         {
-            "test_suite_size": len(instances),
-            "synthesis_seconds": round(synthesis["synthesis_seconds"], 2),
-            "evaluation_before_classification_seconds": round(
-                evaluation_before, 2
-            ),
-            "evaluation_during_classification_seconds": round(
-                evaluation_during, 2
-            ),
             "classifications": counts,
             "classification_stats": number_stats(counts.values()),
             "completed_oracles": sum(value is not None for value in counts.values()),
@@ -437,16 +455,7 @@ def evaluate_batch(
     if errors:
         result["oracle_errors"] = errors
         result["status"] = "partial"
-    if synthesis.get("messages"):
-        result["messages"] = synthesis["messages"]
-    if synthesis.get("enumerated-cover") is not None:
-        enumeration = dict(synthesis["enumerated-cover"])
-        for key in ("enumeration_seconds", "cover_seconds"):
-            if enumeration.get(key) is not None:
-                enumeration[key] = round(enumeration[key], 2)
-        result["enumerated-cover"] = enumeration
-    if synthesis.get("balanced-split") is not None:
-        result["balanced-split"] = dict(synthesis["balanced-split"])
+        result["failure_stage"] = "classification"
     return result
 
 
@@ -489,13 +498,12 @@ def _format_stats(stats):
 def print_algorithm_result(key, result):
     suffix = _format_stats(result.get("classification_stats"))
     extra = ""
+    if result.get("failure_stage"):
+        extra = f"; failure during {result['failure_stage']}"
     if "test_suite_size" in result:
-        extra = (
+        extra += (
             f"; suite {result['test_suite_size']}; "
-            f"synthesis {result['synthesis_seconds']:.2f} seconds; "
-            "evaluation before/during "
-            f"{result['evaluation_before_classification_seconds']:.2f}/"
-            f"{result['evaluation_during_classification_seconds']:.2f} seconds"
+            f"synthesis {result['synthesis_seconds']:.2f} seconds"
         )
         if result.get("enumerated-cover"):
             enumeration = result["enumerated-cover"]
@@ -522,6 +530,12 @@ def print_algorithm_result(key, result):
     )
 
 
+def synthesis_completed(result):
+    """Separate batch synthesis from later validation and review simulation."""
+
+    return result.get("synthesis_status", result.get("status")) == "completed"
+
+
 def grouped_summary(problems):
     summary = {}
     for key in ALGORITHMS:
@@ -536,13 +550,13 @@ def grouped_summary(problems):
                 {
                     "problems": 0,
                     "completed_problems": 0,
+                    "synthesis_completed_problems": 0,
+                    "post_synthesis_errors": 0,
                     "completed_oracles": 0,
                     "total_oracles": 0,
                     "classifications": [],
                     "test_suite_sizes": [],
                     "synthesis_seconds": [],
-                    "evaluation_before_seconds": [],
-                    "evaluation_during_seconds": [],
                     "enumerated_instances": [],
                     "separation_patterns": [],
                     "enumeration_solver_calls": [],
@@ -552,6 +566,8 @@ def grouped_summary(problems):
             )
             bucket["problems"] += 1
             bucket["completed_problems"] += result["status"] == "completed"
+            bucket["synthesis_completed_problems"] += synthesis_completed(result)
+            bucket["post_synthesis_errors"] += synthesis_completed(result) and result["status"] != "completed"
             bucket["completed_oracles"] += result.get("completed_oracles", 0)
             bucket["total_oracles"] += result.get("total_oracles", 0)
             bucket["classifications"].extend(
@@ -579,12 +595,6 @@ def grouped_summary(problems):
                 bucket["cover_seconds"].append(enumeration["cover_seconds"])
             if result.get("synthesis_seconds") is not None:
                 bucket["synthesis_seconds"].append(result["synthesis_seconds"])
-                bucket["evaluation_before_seconds"].append(
-                    result["evaluation_before_classification_seconds"]
-                )
-                bucket["evaluation_during_seconds"].append(
-                    result["evaluation_during_classification_seconds"]
-                )
         summary[key] = {}
         for size, bucket in by_size.items():
             summary[key][size] = {
@@ -595,8 +605,6 @@ def grouped_summary(problems):
                     "classifications",
                     "test_suite_sizes",
                     "synthesis_seconds",
-                    "evaluation_before_seconds",
-                    "evaluation_during_seconds",
                     "enumerated_instances",
                     "separation_patterns",
                     "enumeration_solver_calls",
@@ -613,8 +621,6 @@ def grouped_summary(problems):
                 )
             for values_key, stats_key in (
                 ("synthesis_seconds", "synthesis_seconds_stats"),
-                ("evaluation_before_seconds", "evaluation_before_seconds_stats"),
-                ("evaluation_during_seconds", "evaluation_during_seconds_stats"),
                 ("enumerated_instances", "enumerated_instances_stats"),
                 ("separation_patterns", "separation_patterns_stats"),
                 (
@@ -688,9 +694,12 @@ def scope_study_summary(study):
             completed = [
                 result for result in results if result.get("status") == "completed"
             ]
+            synthesized = [result for result in results if synthesis_completed(result)]
             by_scope[key][scope] = {
                 "problems": len(results),
                 "completed_problems": len(completed),
+                "synthesis_completed_problems": len(synthesized),
+                "post_synthesis_errors": sum(result.get("status") != "completed" for result in synthesized),
                 "completed_oracles": sum(
                     result.get("completed_oracles", 0) for result in results
                 ),
@@ -707,7 +716,7 @@ def scope_study_summary(study):
                     if classification is not None
                 ),
                 "synthesis_seconds_stats": number_stats(
-                    result.get("synthesis_seconds") for result in completed
+                    result.get("synthesis_seconds") for result in synthesized
                 ),
             }
 
@@ -776,9 +785,12 @@ def trace_study_summary(study):
             completed = [
                 result for result in results if result.get("status") == "completed"
             ]
+            synthesized = [result for result in results if synthesis_completed(result)]
             by_trace_length[key][trace_length] = {
                 "problems": len(results),
                 "completed_problems": len(completed),
+                "synthesis_completed_problems": len(synthesized),
+                "post_synthesis_errors": sum(result.get("status") != "completed" for result in synthesized),
                 "completed_oracles": sum(
                     result.get("completed_oracles", 0) for result in results
                 ),
@@ -795,7 +807,7 @@ def trace_study_summary(study):
                     if classification is not None
                 ),
                 "synthesis_seconds_stats": number_stats(
-                    result.get("synthesis_seconds") for result in completed
+                    result.get("synthesis_seconds") for result in synthesized
                 ),
             }
 
@@ -821,7 +833,7 @@ def trace_study_summary(study):
 
 
 def online_comparison_summary(document):
-    """Summarize paired batch and always-online balanced synthesis costs."""
+    """Compare upfront batch synthesis with cumulative iterative oracle paths."""
 
     study = document.get("online_comparison", {})
     batch_by_file = {
@@ -838,16 +850,27 @@ def online_comparison_summary(document):
     if not completed:
         return {"completed_configurations": 0}
 
+    timed = [
+        result for result in completed
+        if batch_preparation_seconds(batch_by_file[result["file"]]) is not None
+    ]
+    counts = {
+        "completed_configurations": len(completed),
+        "timed_configurations": len(timed),
+        "completed_oracle_paths": sum(len(result["path_synthesis_seconds"]) for result in completed),
+    }
+    if not timed:
+        return counts
     batch_seconds = [
-        batch_by_file[result["file"]]["synthesis_seconds"] for result in completed
+        batch_preparation_seconds(batch_by_file[result["file"]]) for result in timed
     ]
     online_configuration_means = [
         statistics.mean(result["path_synthesis_seconds"].values())
-        for result in completed
+        for result in timed
     ]
     online_paths = [
         seconds
-        for result in completed
+        for result in timed
         for seconds in result["path_synthesis_seconds"].values()
     ]
     ratios = [
@@ -860,9 +883,8 @@ def online_comparison_summary(document):
         for batch, online in zip(batch_seconds, online_configuration_means)
     ]
     return {
-        "completed_configurations": len(completed),
-        "completed_oracle_paths": len(online_paths),
-        "batch_synthesis_seconds": {
+        **counts,
+        "batch_preparation_seconds": {
             "mean": statistics.mean(batch_seconds),
             "median": statistics.median(batch_seconds),
         },
@@ -921,6 +943,7 @@ def ensure_online_comparison(document, timeout_seconds, trace_length=None):
         "synthesis_timeout_seconds": timeout_seconds,
         "eligible_batch_status": "completed",
         "aggregation": "mean oracle-path cost per configuration",
+        "batch_runtime_components": ["synthesis_seconds"],
     }
     changed = False
     study = document.get("online_comparison")
@@ -1553,7 +1576,7 @@ def _failed_result(algorithm, predicates, error, synthesis_timeout_seconds):
     }
 
 
-def run_main_study(args, document, parse, predicate_holds):
+def run_main_study(args, document, parse):
     paths = _main_paths(args)
     existing_by_file = {
         problem["file"]: problem for problem in document["problems"]
@@ -1600,7 +1623,6 @@ def run_main_study(args, document, parse, predicate_holds):
                     algorithm,
                     args.scope,
                     args.timeout,
-                    predicate_holds,
                     args.trace_length,
                 )
             except Exception as error:
@@ -1620,7 +1642,7 @@ def run_main_study(args, document, parse, predicate_holds):
         )
 
 
-def run_scope_study(args, document, parse, predicate_holds):
+def run_scope_study(args, document, parse):
     from alloy import requires_trace_length
 
     ensure_scope_study(
@@ -1696,7 +1718,6 @@ def run_scope_study(args, document, parse, predicate_holds):
                     algorithm,
                     scope,
                     args.timeout,
-                    predicate_holds,
                     args.trace_length,
                 )
             except Exception as error:
@@ -1716,7 +1737,7 @@ def run_scope_study(args, document, parse, predicate_holds):
         )
 
 
-def run_trace_study(args, document, parse, predicate_holds):
+def run_trace_study(args, document, parse):
     """Vary temporal trace length while holding structural scope fixed."""
 
     trace_lengths = list(_trace_study_values(args))
@@ -1813,7 +1834,6 @@ def run_trace_study(args, document, parse, predicate_holds):
                     algorithm,
                     args.scope,
                     args.timeout,
-                    predicate_holds,
                     trace_length,
                 )
             except Exception as error:
@@ -1900,16 +1920,13 @@ def print_main_summary(document):
             timing = ""
             if row.get("synthesis_path_seconds_stats"):
                 timing = (
-                    "; mean oracle-path synthesis/evaluation "
-                    f"{row['synthesis_path_seconds_stats']['mean']:.2f}/"
-                    f"{row['evaluation_path_seconds_stats']['mean']:.2f} seconds"
+                    "; mean oracle-path synthesis "
+                    f"{row['synthesis_path_seconds_stats']['mean']:.2f} seconds"
                 )
             elif row.get("synthesis_seconds_stats"):
                 timing = (
-                    "; mean synthesis/evaluation-before/evaluation-during "
-                    f"{row['synthesis_seconds_stats']['mean']:.2f}/"
-                    f"{row['evaluation_before_seconds_stats']['mean']:.2f}/"
-                    f"{row['evaluation_during_seconds_stats']['mean']:.2f} seconds"
+                    "; mean synthesis "
+                    f"{row['synthesis_seconds_stats']['mean']:.2f} seconds"
                 )
             if row.get("separation_patterns_stats"):
                 timing += (
@@ -1940,8 +1957,9 @@ def print_scope_summary(document):
             suite_stats = row.get("test_suite_size_stats")
             suite = "NA" if suite_stats is None else f"{suite_stats['mean']:.2f}"
             print(
-                f"  scope={scope}: {row['completed_problems']}/{row['problems']} "
-                f"problems; suite mean {suite}; classifications "
+                f"  scope={scope}: {row.get('synthesis_completed_problems', row['completed_problems'])}/{row['problems']} "
+                f"synthesized batches; {row.get('post_synthesis_errors', 0)} post-synthesis errors; "
+                f"validated suite mean {suite}; classifications "
                 f"{_format_stats(row.get('classification_stats'))}",
                 flush=True,
             )
@@ -1970,8 +1988,9 @@ def print_trace_summary(document):
             suite = "NA" if suite_stats is None else f"{suite_stats['mean']:.2f}"
             print(
                 f"  trace={trace_length}: "
-                f"{row['completed_problems']}/{row['problems']} problems; "
-                f"suite mean {suite}; classifications "
+                f"{row.get('synthesis_completed_problems', row['completed_problems'])}/{row['problems']} synthesized batches; "
+                f"{row.get('post_synthesis_errors', 0)} post-synthesis errors; "
+                f"validated suite mean {suite}; classifications "
                 f"{_format_stats(row.get('classification_stats'))}",
                 flush=True,
             )
@@ -1987,12 +2006,15 @@ def print_online_summary(document):
     if not completed:
         print("  no completed configurations", flush=True)
         return
-    batch = summary["batch_synthesis_seconds"]["median"]
+    if not summary.get("timed_configurations"):
+        print("  no configurations with recorded batch synthesis time", flush=True)
+        return
+    batch = summary["batch_preparation_seconds"]["median"]
     online = summary["online_mean_path_synthesis_seconds"][
         "median_across_configurations"
     ]
     print(
-        f"  {completed} configurations; paired median batch/online "
+        f"  {summary['timed_configurations']} configurations; median batch/iterative path "
         f"{batch:.2f}/{online:.2f} seconds",
         flush=True,
     )
@@ -2020,11 +2042,10 @@ def main(argv=None):
     document = _load_document(args)
 
     from alloy import parse
-    from classification import predicate_holds
 
     try:
         if args.study in {"all", "main"}:
-            run_main_study(args, document, parse, predicate_holds)
+            run_main_study(args, document, parse)
         if args.study in {"all", "scope"}:
             # Main scope results may have been added immediately above. Seed
             # them into the scope study before looking for missing work.
@@ -2037,7 +2058,7 @@ def main(argv=None):
                 args.temporal_study_size,
             ):
                 save_results(args.output, document)
-            run_scope_study(args, document, parse, predicate_holds)
+            run_scope_study(args, document, parse)
             if args.trace_length is not None:
                 if ensure_trace_study(
                     document,
@@ -2047,7 +2068,7 @@ def main(argv=None):
                     args.trace_length,
                 ):
                     save_results(args.output, document)
-                run_trace_study(args, document, parse, predicate_holds)
+            run_trace_study(args, document, parse)
         if args.study in {"all", "online"}:
             run_online_study(args, document)
     except KeyboardInterrupt:
