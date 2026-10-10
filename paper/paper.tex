@@ -968,6 +968,15 @@ outcomes~\cite{GareyJohnson,moret1985minimizing}. Our cover-based methods extend
 this objective to an implicit symbolic test space, where feasible tests must
 also be discovered.
 
+Fault-based test generation also synthesizes distinguishing tests. Gargantini
+and Fraser~\cite{gargantini2011generating} generate compact suites for Boolean
+specifications using SAT/SMT, with test reuse and heuristic suite reduction.
+Arcaini et al.~\cite{arcaini2015generating} apply these techniques to feature
+models and propose user review of distinguishing configurations for model
+validation. Their adequacy criterion distinguishes a reference specification
+from its mutants. Our criterion separates every candidate pair, and our
+cover-based methods guarantee minimum cardinality over the bounded test domain.
+
 Related suite optimization targets program coverage. Test-suite reduction
 retains existing tests that preserve a chosen coverage
 criterion~\cite{khan2018systematic,hsu2009mints}. Whole-suite generation
@@ -1073,7 +1082,7 @@ for review at \url{https://anonymous.4open.science/r/Specification-Narrowing-6E4
 If the paper is accepted, the package will be submitted for artifact evaluation
 and publicly archived on Zenodo. The implementation will also be released as
 open source on GitHub.
-\newpage
+
 \bibliographystyle{splncs04}
 \bibliography{bibliography}
 
