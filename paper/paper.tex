@@ -52,9 +52,9 @@ further 29\% smaller. The SAT-based tree-guided method completes every
 main-study configuration within 0.43 seconds, while the exact methods exhibit
 different scalability profiles, particularly for temporal models. Complete
 batches also support adaptive review, with balanced batches nearly attaining the
-theoretical lower bound on mean classification cost. With modest additional
-upfront synthesis effort, these reusable suites offer competitive adaptive
-classification and eliminate synthesis delays during review.
+theoretical lower bound on mean classification cost. On completed benchmarks,
+modest additional upfront synthesis effort provides complete reusable suites
+that also support competitive adaptive classification.
 
 \keywords{Specification narrowing \and Symbolic test synthesis \and MaxSAT
   \and Alloy \and Temporal relational logic}
@@ -166,8 +166,9 @@ analysis shows that balanced batches nearly attain the theoretical minimum
 number of classifications on average, while minimum-cardinality batches need
 only slightly more. On completed static configurations, synthesizing the full
 balanced batch costs a median of 0.16 seconds more than generating tests during
-review. This modest upfront effort pays off by providing a complete, reusable suite
-and eliminating synthesis delays during classification.
+review. This additional upfront effort, however, makes a complete, reusable suite
+available before any judgments are collected, supporting independent,
+asynchronous, and adaptive review.
 
 This paper contributes:
 \begin{itemize}
@@ -941,8 +942,10 @@ configuration; the median paired increase for complete batch synthesis is
 configurations, the corresponding medians are 3.11 and 2.29~s,
 with a median paired increase of 0.82~s.
 These comparisons exclude the batch timeouts reported in RQ2.
-We stress that this extra effort delivers a complete reusable suite before review, with
-adaptive presentation requiring no further synthesis.
+Iterative synthesis is already fast on these benchmarks, so these results do not
+establish a substantial reduction in review delays. The additional upfront effort,
+however, provides a complete reusable suite before review, with adaptive presentation
+requiring no further synthesis.
 
 \subsection{Threats to Validity}
 The educational Alloy models, nested candidate sets, and selection of frequent,
