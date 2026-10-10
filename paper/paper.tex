@@ -741,7 +741,7 @@ runtime medians.
 
 Sensitivity studies evaluate all four methods at structural scopes~3--7 for
 static sets with $N=16$. Temporal
-studies use $N=4$, varying either scope or maximum trace length from~3 to~7
+studies use $N=4$, varying either structural scope or maximum trace length from~3 to~7
 while fixing the other bound at~3. RQ1 retains the same configurations with
 both tree-guided batches and a minimum certified by either cover method at
 every bound. RQ2 pairs configurations completed by all four methods at every
@@ -862,7 +862,7 @@ cover-based methods also become less robust as candidate count increases:
 at $N=28$, \jointcover{} completed 15 configurations and
 \enumeratedcover{} completed 11. Avoiding optimization therefore provides
 the most reliable complete batches in this benchmark, at the cost of the
-larger cardinalities reported in RQ1.
+larger batch cardinalities reported in RQ1.
 
 \paragraph{Cost of minimum covers.}
 On the common static subset, all four median synthesis times are below
